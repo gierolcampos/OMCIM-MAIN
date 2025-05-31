@@ -1,0 +1,179 @@
+/**
+ * Apple-style Notification CSS
+ * Creates notifications that slide in from the top like Apple's notification system
+ */
+
+/* Container for all notifications */
+.apple-notification-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none; /* Allow clicks to pass through the container */
+    padding-top: 10px;
+}
+
+/* Individual notification */
+.apple-notification {
+    width: 90%;
+    max-width: 400px;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 10px;
+    overflow: hidden;
+    transform: translateY(-120%);
+    opacity: 0;
+    transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1), 
+                opacity 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    pointer-events: auto; /* Make the notification clickable */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+/* Notification that is visible */
+.apple-notification.visible {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Notification that is exiting */
+.apple-notification.exiting {
+    transform: translateY(-120%);
+    opacity: 0;
+}
+
+/* Notification header */
+.apple-notification-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* App icon */
+.apple-notification-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    margin-right: 8px;
+    background-color: #c21313; /* Use the main color */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+/* Notification title */
+.apple-notification-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #000;
+    flex-grow: 1;
+}
+
+/* Time indicator */
+.apple-notification-time {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Notification content */
+.apple-notification-content {
+    padding: 10px 15px 15px;
+}
+
+/* Notification message */
+.apple-notification-message {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+/* Notification badges */
+.apple-notification-badges {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.apple-notification-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.apple-notification-badge.important {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.apple-notification-badge.pinned {
+    background-color: #e0f2fe;
+    color: #0284c7;
+}
+
+/* Close button */
+.apple-notification-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.apple-notification:hover .apple-notification-close {
+    opacity: 1;
+}
+
+.apple-notification-close svg {
+    width: 12px;
+    height: 12px;
+    color: #666;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .apple-notification {
+        background-color: rgba(50, 50, 50, 0.95);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .apple-notification-title {
+        color: #fff;
+    }
+    
+    .apple-notification-time {
+        color: #aaa;
+    }
+    
+    .apple-notification-message {
+        color: #ddd;
+    }
+    
+    .apple-notification-close {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .apple-notification-close svg {
+        color: #aaa;
+    }
+}

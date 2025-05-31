@@ -6,28 +6,30 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 0.25rem;
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
+    width: 36px;
+    height: 36px;
+    margin: 1px;
+    border-radius: 0;
+    box-sizing: border-box;
 }
 
 .calendar-day:hover {
-    background-color: #f3f4f6;
-    transform: translateY(-2px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    animation: wiggle 0.5s ease;
-}
-
-@keyframes wiggle {
-    0%, 100% { transform: translateY(-2px) rotate(0deg); }
-    25% { transform: translateY(-2px) rotate(1deg); }
-    75% { transform: translateY(-2px) rotate(-1deg); }
+    background-color: #c21313;
+    color: white;
 }
 
 .calendar-day.other-month {
     color: #d1d5db;
+}
+
+.calendar-day.other-month:hover {
+    background-color: #c21313;
+    color: white;
+    opacity: 0.7;
 }
 
 .calendar-day.today {
@@ -38,19 +40,20 @@
 .calendar-day.selected {
     background-color: #c21313;
     color: white;
-    animation: selected-pulse 1s ease-in-out;
+    border: 1px solid #c21313;
 }
 
-@keyframes selected-pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
+/* Special styling for days with events */
+.calendar-day.has-events {
+    position: relative;
 }
+
+/* No special styling for specific days - all days have the same styling */
 
 .calendar-day.has-events::after {
     content: '';
     position: absolute;
-    bottom: 3px;
+    bottom: 2px;
     left: 50%;
     transform: translateX(-50%);
     width: 4px;
@@ -63,56 +66,34 @@
     background-color: white;
 }
 
+/* Event dot styling */
+.event-dot {
+    display: block;
+    width: 4px;
+    height: 4px;
+    background-color: #c21313;
+    border-radius: 50%;
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 /* Event Card Styling */
 .event-card {
     background-color: white;
     border-radius: 0.5rem;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
     border: 1px solid #e5e7eb;
     position: relative;
 }
 
 .event-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     border-color: #c21313;
-}
-
-/* Pulse animation on hover */
-.event-card::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 0.5rem;
-    border: 2px solid #c21313;
-    opacity: 0;
-    transition: all 0.5s ease;
-}
-
-.event-card:hover::after {
-    opacity: 1;
-    transform: scale(1.02);
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1.02);
-        opacity: 0.7;
-    }
-    50% {
-        transform: scale(1.05);
-        opacity: 0.3;
-    }
-    100% {
-        transform: scale(1.02);
-        opacity: 0.7;
-    }
 }
 
 .event-card .event-image {
@@ -148,6 +129,62 @@
     color: #c21313;
 }
 
+/* Event Status Badges */
+.event-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+/* Status colors for dynamic cards */
+.status-upcoming {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-completed {
+    background-color: #f3f4f6;
+    color: #4b5563;
+}
+
+.status-cancelled {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Status colors for static cards */
+.bg-green-100 {
+    background-color: #dcfce7;
+}
+
+.text-green-700 {
+    color: #166534;
+}
+
+.bg-gray-100 {
+    background-color: #f3f4f6;
+}
+
+.text-gray-700 {
+    color: #4b5563;
+}
+
+.bg-red-100 {
+    background-color: #fee2e2;
+}
+
+.text-red-700 {
+    color: #b91c1c;
+}
+
+/* Status badge animation on hover */
+.event-card:hover .event-status {
+    transform: scale(1.05);
+    transition: transform 0.3s ease;
+}
+
 /* Animation for new events */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -173,8 +210,8 @@
 }
 
 #prevMonth:hover, #nextMonth:hover {
-    transform: scale(1.2);
-    background-color: #f3f4f6;
+    transform: scale(1.1);
+    color: #c21313;
 }
 
 /* Search Input Animation */

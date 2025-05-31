@@ -3,14 +3,101 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Order;
+// Order model removed as it's no longer needed
+// use App\Models\Order;
 use App\Models\NonIcsMember;
+use App\Models\PaymentFee;
+use App\Models\SchoolCalendar;
+use App\Models\CashPayment;
+use App\Models\GcashPayment;
+use App\Traits\HasBase64Images;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use App\Models\User;
 
 class PaymentController extends Controller
 {
+    use HasBase64Images;
+    /**
+     * Get payment fee by purpose
+     *
+     * @param string $purpose
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getPaymentFeeByPurpose(Request $request)
+    {
+        try {
+            $purpose = $request->input('purpose');
+
+            if (!$purpose) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Purpose is required',
+                    'data' => null
+                ], 400);
+            }
+
+            $paymentFee = PaymentFee::where('purpose', $purpose)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$paymentFee) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment fee not found for the specified purpose',
+                    'data' => null
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment fee retrieved successfully',
+                'data' => [
+                    'fee_id' => $paymentFee->fee_id,
+                    'purpose' => $paymentFee->purpose,
+                    'description' => $paymentFee->description,
+                    'total_price' => $paymentFee->total_price
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error retrieving payment fee: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving the payment fee',
+                'data' => null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all active payment fees
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAllPaymentFees()
+    {
+        try {
+            $paymentFees = PaymentFee::where('is_active', true)
+                ->orderBy('purpose')
+                ->get(['fee_id', 'purpose', 'description', 'total_price']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment fees retrieved successfully',
+                'data' => $paymentFees
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error retrieving payment fees: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving payment fees',
+                'data' => null
+            ], 500);
+        }
+    }
     /**
      * Display a listing of the payments.
      */
@@ -18,42 +105,23 @@ class PaymentController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->is_admin) {
+        if ($user->isAdmin()) {
             // Admin view
-            // Get payments from the original Order table
-            $query = Order::with(['user', 'nonIcsMember']);
+            // Initialize empty array for payments
+            $paymentsArray = [];
 
-            // Apply search filter
-            if (request('search')) {
-                $query->where(function($q) {
-                    $q->where('id', 'like', '%' . request('search') . '%')
-                      ->orWhere('email', 'like', '%' . request('search') . '%')
-                      ->orWhereHas('user', function($q) {
-                          $q->where('firstname', 'like', '%' . request('search') . '%')
-                            ->orWhere('lastname', 'like', '%' . request('search') . '%')
-                            ->orWhere('email', 'like', '%' . request('search') . '%');
-                      })
-                      ->orWhereHas('nonIcsMember', function($q) {
-                          $q->where('fullname', 'like', '%' . request('search') . '%')
-                            ->orWhere('email', 'like', '%' . request('search') . '%');
-                      });
-                });
-            }
-
-            // Apply payment method filter
-            if (request('payment_method')) {
-                $query->where('method', request('payment_method'));
-            }
-
-            // Apply status filter
-            if (request('status')) {
-                $query->where('payment_status', request('status'));
-            }
-
-            $payments = $query->orderBy('created_at', 'desc')->paginate(10);
+            // We no longer use the Order table, so we'll just use an empty collection
+            // This will be replaced by the cash and gcash payments
 
             // Get cash payments
             $cashQuery = \App\Models\CashPayment::with('user');
+
+            // Apply academic year filter if provided, otherwise use current academic year
+            if (request('school_calendar_id')) {
+                $cashQuery->where('school_calendar_id', request('school_calendar_id'));
+            } else {
+                $cashQuery->currentAcademicYear();
+            }
 
             // Apply search filter for cash payments
             if (request('search')) {
@@ -86,6 +154,13 @@ class PaymentController extends Controller
             // Get GCash payments
             $gcashQuery = \App\Models\GcashPayment::with('user');
 
+            // Apply academic year filter if provided, otherwise use current academic year
+            if (request('school_calendar_id')) {
+                $gcashQuery->where('school_calendar_id', request('school_calendar_id'));
+            } else {
+                $gcashQuery->currentAcademicYear();
+            }
+
             // Apply search filter for GCash payments
             if (request('search')) {
                 $gcashQuery->where(function($q) {
@@ -117,6 +192,13 @@ class PaymentController extends Controller
             // Get non-ICS members data directly from the non_ics_members table
             $nonIcsQuery = NonIcsMember::query();
 
+            // Apply academic year filter if provided, otherwise use current academic year
+            if (request('school_calendar_id')) {
+                $nonIcsQuery->where('school_calendar_id', request('school_calendar_id'));
+            } else {
+                $nonIcsQuery->currentAcademicYear();
+            }
+
             // Apply search filter for non-ICS members
             if (request('search')) {
                 $nonIcsQuery->where(function($q) {
@@ -139,22 +221,19 @@ class PaymentController extends Controller
             $nonIcsMembers = $nonIcsQuery->orderBy('created_at', 'desc')->paginate(10, ['*'], 'non_ics_page');
 
             // Calculate statistics
-            // From original Order table
-            $statsQuery = Order::query();
-            $totalPayments = $statsQuery->clone()->where('payment_status', 'Paid')->sum('total_price');
-            $thisMonthPayments = $statsQuery->clone()
-                ->where('payment_status', 'Paid')
-                ->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
-                ->sum('total_price');
-            $pendingPayments = $statsQuery->clone()->where('payment_status', 'Pending')->sum('total_price');
-            $rejectedPayments = $statsQuery->clone()->where('payment_status', 'Rejected')->sum('total_price');
+            // Reset all statistics to 0
+            $totalPayments = 0;
+            $thisMonthPayments = 0;
+            $pendingPayments = 0;
+            $rejectedPayments = 0;
+
+            // We no longer use the Order table for statistics
 
             // Add cash payments statistics
             $totalPayments += \App\Models\CashPayment::where('payment_status', 'Paid')->sum('total_price');
             $thisMonthPayments += \App\Models\CashPayment::where('payment_status', 'Paid')
-                ->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
+                ->whereMonth('placed_on', now()->month)
+                ->whereYear('placed_on', now()->year)
                 ->sum('total_price');
             $pendingPayments += \App\Models\CashPayment::where('payment_status', 'Pending')->sum('total_price');
             $rejectedPayments += \App\Models\CashPayment::where('payment_status', 'Rejected')->sum('total_price');
@@ -162,8 +241,8 @@ class PaymentController extends Controller
             // Add GCash payments statistics
             $totalPayments += \App\Models\GcashPayment::where('payment_status', 'Paid')->sum('total_price');
             $thisMonthPayments += \App\Models\GcashPayment::where('payment_status', 'Paid')
-                ->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
+                ->whereMonth('placed_on', now()->month)
+                ->whereYear('placed_on', now()->year)
                 ->sum('total_price');
             $pendingPayments += \App\Models\GcashPayment::where('payment_status', 'Pending')->sum('total_price');
             $rejectedPayments += \App\Models\GcashPayment::where('payment_status', 'Rejected')->sum('total_price');
@@ -171,11 +250,51 @@ class PaymentController extends Controller
             // Add non-ICS members statistics
             $totalPayments += NonIcsMember::where('payment_status', 'Paid')->sum('total_price');
             $thisMonthPayments += NonIcsMember::where('payment_status', 'Paid')
-                ->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
+                ->whereMonth('placed_on', now()->month)
+                ->whereYear('placed_on', now()->year)
                 ->sum('total_price');
             $pendingPayments += NonIcsMember::where('payment_status', 'Pending')->sum('total_price');
-            $rejectedPayments += NonIcsMember::where('payment_status', 'Failed')->orWhere('payment_status', 'Rejected')->sum('total_price');
+            $rejectedPayments += NonIcsMember::where(function($query) {
+                $query->where('payment_status', 'Failed')
+                      ->orWhere('payment_status', 'Rejected');
+            })->sum('total_price');
+
+            // We need to create a paginator for the combined payments
+            $currentPage = request()->input('page', 1);
+            $perPage = 10;
+
+            // We'll use an empty array for the combined payments
+            // since we're displaying cash_payments and gcash_payments separately
+            $allPayments = [];
+
+            // Sort all payments by created_at in descending order
+            usort($allPayments, function($a, $b) {
+                return $b->created_at <=> $a->created_at;
+            });
+
+            // Create a custom paginator manually
+            $currentPage = request()->input('page', 1);
+            $paymentsCollection = collect($allPayments);
+            $paymentsForPage = $paymentsCollection->forPage($currentPage, $perPage);
+
+            // Create a LengthAwarePaginator instance
+            try {
+                $payments = new \Illuminate\Pagination\LengthAwarePaginator(
+                    $paymentsForPage,
+                    $paymentsCollection->count(),
+                    $perPage,
+                    $currentPage,
+                    ['path' => request()->url(), 'query' => request()->query()]
+                );
+            } catch (\Exception $e) {
+                // If there's an error creating the paginator, just use the collection
+                Log::error('Error creating paginator: ' . $e->getMessage());
+                $payments = $paymentsCollection;
+            }
+
+            // Get all school calendars for the filter dropdown
+            $schoolCalendars = SchoolCalendar::orderBy('created_at', 'desc')->get();
+            $currentCalendar = SchoolCalendar::getCurrentCalendar();
 
             return view('payments.index', compact(
                 'payments',
@@ -185,27 +304,20 @@ class PaymentController extends Controller
                 'totalPayments',
                 'thisMonthPayments',
                 'pendingPayments',
-                'rejectedPayments'
+                'rejectedPayments',
+                'schoolCalendars',
+                'currentCalendar'
             ));
         } else {
             // Client view
-            // Get payments from the original Order table
-            $query = Order::where('user_id', $user->id);
-
-            // Apply search filter
-            if (request('search')) {
-                $query->where('id', 'like', '%' . request('search') . '%');
-            }
-
-            // Apply status filter
-            if (request('payment_status')) {
-                $query->where('payment_status', request('payment_status'));
-            }
-
-            $payments = $query->orderBy('created_at', 'desc')->paginate(10);
+            // Initialize empty payments collection since we no longer use the Order table
+            $payments = collect([]);
 
             // Get cash payments
             $cashQuery = \App\Models\CashPayment::where('user_id', $user->id);
+
+            // Apply current academic year filter
+            $cashQuery->currentAcademicYear();
 
             // Apply search filter for cash payments
             if (request('search')) {
@@ -230,6 +342,9 @@ class PaymentController extends Controller
             // Get GCash payments
             $gcashQuery = \App\Models\GcashPayment::where('user_id', $user->id);
 
+            // Apply current academic year filter
+            $gcashQuery->currentAcademicYear();
+
             // Apply search filter for GCash payments
             if (request('search')) {
                 $gcashQuery->where('id', 'like', '%' . request('search') . '%');
@@ -251,20 +366,10 @@ class PaymentController extends Controller
             $gcashPayments = $gcashQuery->orderBy('created_at', 'desc')->paginate(5, ['*'], 'gcash_page');
 
             // Calculate statistics
-            // From original Order table
-            $totalPayments = Order::where('user_id', $user->id)
-                ->where('payment_status', 'Paid')
-                ->sum('total_price');
-
-            $thisMonthPayments = Order::where('user_id', $user->id)
-                ->where('payment_status', 'Paid')
-                ->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
-                ->sum('total_price');
-
-            $pendingPayments = Order::where('user_id', $user->id)
-                ->where('payment_status', 'Pending')
-                ->sum('total_price');
+            // Initialize statistics to 0
+            $totalPayments = 0;
+            $thisMonthPayments = 0;
+            $pendingPayments = 0;
 
             // Add cash payments statistics
             $totalPayments += \App\Models\CashPayment::where('user_id', $user->id)
@@ -296,13 +401,50 @@ class PaymentController extends Controller
                 ->where('payment_status', 'Pending')
                 ->sum('total_price');
 
+            // We need to create a paginator for the combined payments
+            $currentPage = request()->input('page', 1);
+            $perPage = 10;
+
+            // We'll use an empty array for the combined payments
+            // since we're displaying cash_payments and gcash_payments separately
+            $allPayments = [];
+
+            // Sort all payments by created_at in descending order
+            usort($allPayments, function($a, $b) {
+                return $b->created_at <=> $a->created_at;
+            });
+
+            // Create a custom paginator manually
+            $currentPage = request()->input('page', 1);
+            $paymentsCollection = collect($allPayments);
+            $paymentsForPage = $paymentsCollection->forPage($currentPage, $perPage);
+
+            // Create a LengthAwarePaginator instance
+            try {
+                $payments = new \Illuminate\Pagination\LengthAwarePaginator(
+                    $paymentsForPage,
+                    $paymentsCollection->count(),
+                    $perPage,
+                    $currentPage,
+                    ['path' => request()->url(), 'query' => request()->query()]
+                );
+            } catch (\Exception $e) {
+                // If there's an error creating the paginator, just use the collection
+                Log::error('Error creating paginator: ' . $e->getMessage());
+                $payments = $paymentsCollection;
+            }
+
+            // Get the current school calendar for display
+            $currentCalendar = SchoolCalendar::getCurrentCalendar();
+
             return view('payments.member', compact(
                 'payments',
                 'cashPayments',
                 'gcashPayments',
                 'totalPayments',
                 'thisMonthPayments',
-                'pendingPayments'
+                'pendingPayments',
+                'currentCalendar'
             ));
         }
     }
@@ -315,14 +457,14 @@ class PaymentController extends Controller
         $admin = Auth::user();
 
         // Restrict payment creation to admin users only
-        if (!$admin->is_admin) {
+        if (!$admin->canManagePayments()) {
             return redirect()->route('client.payments.index')
                 ->with('error', 'You do not have permission to create payments.');
         }
 
         // For admins, fetch all active members
         $users = User::where('status', 'active')
-                    ->where('is_admin', false)
+                    ->where('user_role', 'member')
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -338,7 +480,7 @@ class PaymentController extends Controller
                     });
 
         // Fetch all admin users for officer selection
-        $officers = User::where('is_admin', true)
+        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -361,7 +503,12 @@ class PaymentController extends Controller
             $admin->suffix
         ])));
 
-        return view('payments.create', compact('users', 'officers', 'adminName'));
+        // Fetch active payment fees
+        $paymentFees = PaymentFee::where('is_active', true)
+                        ->orderBy('purpose')
+                        ->get();
+
+        return view('payments.create', compact('users', 'officers', 'adminName', 'paymentFees'));
     }
 
     /**
@@ -370,15 +517,19 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         // Restrict payment creation to admin users only
-        if (!auth()->user()->is_admin) {
+        if (!auth()->user()->canManagePayments()) {
             return redirect()->route('client.payments.index')
                 ->with('error', 'You do not have permission to create payments.');
         }
 
         try {
+            // Ensure base64 directories exist
+            $this->ensureDirectoryExists('base64/payments/cash');
+            $this->ensureDirectoryExists('base64/payments/gcash');
+
             // Check if this is a non-ICS payment submission
             $isNonIcsPayment = $request->has('non_ics_payment') && $request->non_ics_payment == 1;
-            \Log::info('Payment submission type:', ['is_non_ics_payment' => $isNonIcsPayment]);
+            Log::info('Payment submission type:', ['is_non_ics_payment' => $isNonIcsPayment]);
 
             // Process payment data
 
@@ -417,7 +568,7 @@ class PaymentController extends Controller
                 $rules['course_year_section'] = 'required|string|max:50';
                 $rules['non_ics_mobile'] = 'nullable|string|max:20';
 
-                \Log::info('Using non-ICS member validation rules', [
+                Log::info('Using non-ICS member validation rules', [
                     'has_user_email' => $request->has('user_email'),
                     'user_email_value' => $request->input('user_email')
                 ]);
@@ -453,15 +604,15 @@ class PaymentController extends Controller
             if ($validated['payer_type'] === 'ics_member') {
                 // For ICS members, get the user from the database
                 $user = User::where('email', $validated['user_email'])->firstOrFail();
-                \Log::info('ICS Member selected:', ['user_id' => $user->id, 'email' => $user->email]);
+                Log::info('ICS Member selected:', ['user_id' => $user->id, 'email' => $user->email]);
             } else if ($validated['payer_type'] === 'non_ics_member') {
                 // For non-ICS members, find or create a record in the non_ics_members table
                 try {
-                    \Log::info('Non-ICS Member selected, checking database');
+                    Log::info('Non-ICS Member selected, checking database');
 
                     // Always create a new non-ICS member payment record for each submission
                     // This allows multiple payments with different purposes, descriptions, etc.
-                    \Log::info('Creating new Non-ICS Member record');
+                    Log::info('Creating new Non-ICS Member record');
                     // Prepare data for NonIcsMember creation
                     $nonIcsMemberData = [
                         'email' => $validated['non_ics_email'],
@@ -473,7 +624,8 @@ class PaymentController extends Controller
                         'total_price' => $validated['total_price'] ?? null,
                         'method' => $validated['payment_method'],
                         'description' => $validated['description'] ?? null,
-                        'placed_on' => now()
+                        'placed_on' => now(),
+                        'school_calendar_id' => SchoolCalendar::getCurrentCalendarId()
                     ];
 
                     // Add payment method specific fields
@@ -489,9 +641,9 @@ class PaymentController extends Controller
 
                     // Use the create method to ensure proper model creation
                     $nonIcsMember = NonIcsMember::create($nonIcsMemberData);
-                    \Log::info('New Non-ICS Member created:', ['id' => $nonIcsMember->id, 'email' => $nonIcsMember->email]);
+                    Log::info('New Non-ICS Member created:', ['id' => $nonIcsMember->id, 'email' => $nonIcsMember->email]);
                 } catch (\Exception $e) {
-                    \Log::error('Error processing Non-ICS Member:', [
+                    Log::error('Error processing Non-ICS Member:', [
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString(),
                         'data' => $validated
@@ -510,14 +662,24 @@ class PaymentController extends Controller
 
             if ($request->hasFile('gcash_proof_of_payment') && $validated['payment_method'] === 'GCASH') {
                 $gcashProofFile = $request->file('gcash_proof_of_payment');
-                $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+
+                // Convert image to base64 and store in a file
+                $gcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                if (!$gcashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                    $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+                    Log::info('GCash proof stored as file: ' . $gcashProofPath);
+                } else {
+                    Log::info('GCash proof converted to base64 and stored in file: ' . $gcashProofPath);
+                }
 
                 // Update the NonIcsMember record with the proof path if it's a non-ICS member
                 if ($validated['payer_type'] === 'non_ics_member' && $nonIcsMember) {
                     $nonIcsMember->gcash_proof_path = $gcashProofPath;
                     $nonIcsMember->save();
-                    \Log::info('Updated NonIcsMember with GCash proof path', [
+                    Log::info('Updated NonIcsMember with GCash proof path', [
                         'id' => $nonIcsMember->id,
                         'gcash_proof_path' => $gcashProofPath
                     ]);
@@ -526,14 +688,24 @@ class PaymentController extends Controller
 
             if ($request->hasFile('cash_proof_of_payment') && $validated['payment_method'] === 'CASH') {
                 $cashProofFile = $request->file('cash_proof_of_payment');
-                $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
-                $cashProofFile->move(public_path('proofs'), $cashProofPath);
+
+                // Convert image to base64 and store in a file
+                $cashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                if (!$cashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
+                    $cashProofFile->move(public_path('proofs'), $cashProofPath);
+                    Log::info('Cash proof stored as file: ' . $cashProofPath);
+                } else {
+                    Log::info('Cash proof converted to base64 and stored in file: ' . $cashProofPath);
+                }
 
                 // Update the NonIcsMember record with the proof path if it's a non-ICS member
                 if ($validated['payer_type'] === 'non_ics_member' && $nonIcsMember) {
                     $nonIcsMember->cash_proof_path = $cashProofPath;
                     $nonIcsMember->save();
-                    \Log::info('Updated NonIcsMember with Cash proof path', [
+                    Log::info('Updated NonIcsMember with Cash proof path', [
                         'id' => $nonIcsMember->id,
                         'cash_proof_path' => $cashProofPath
                     ]);
@@ -568,7 +740,7 @@ class PaymentController extends Controller
                     $orderData['non_ics_member_id'] = null; // Explicitly set to null
                     $orderData['email'] = $user->email; // Set email from user
 
-                    \Log::info('Creating payment for ICS Member:', [
+                    Log::info('Creating payment for ICS Member:', [
                         'user_id' => $user->id,
                         'email' => $user->email,
                         'name' => $user->firstname . ' ' . $user->lastname
@@ -585,7 +757,7 @@ class PaymentController extends Controller
                     $orderData['course_year_section'] = $nonIcsMember->course_year_section;
                     $orderData['is_non_ics_member'] = true;
 
-                    \Log::info('Creating payment for Non-ICS Member:', [
+                    Log::info('Creating payment for Non-ICS Member:', [
                         'non_ics_member_id' => $nonIcsMember->id,
                         'email' => $nonIcsMember->email,
                         'fullname' => $nonIcsMember->fullname,
@@ -603,7 +775,7 @@ class PaymentController extends Controller
             try {
                 // Check if this is a non-ICS payment submission
                 if ($isNonIcsPayment && $validated['payer_type'] === 'non_ics_member' && $nonIcsMember) {
-                    \Log::info('Processing as Non-ICS payment - updating NonIcsMember record directly', [
+                    Log::info('Processing as Non-ICS payment - updating NonIcsMember record directly', [
                         'non_ics_member_id' => $nonIcsMember->id,
                         'email' => $nonIcsMember->email
                     ]);
@@ -626,7 +798,7 @@ class PaymentController extends Controller
 
                     $nonIcsMember->save();
 
-                    \Log::info('NonIcsMember record updated successfully', [
+                    Log::info('NonIcsMember record updated successfully', [
                         'id' => $nonIcsMember->id,
                         'payment_status' => $nonIcsMember->payment_status,
                         'total_price' => $nonIcsMember->total_price
@@ -636,7 +808,7 @@ class PaymentController extends Controller
                 // Only create a payment if this is NOT a non-ICS payment
                 if (!($isNonIcsPayment && $validated['payer_type'] === 'non_ics_member')) {
                     // Log the order data before creation
-                    \Log::info('Payment Data Before Creation:', $orderData);
+                    Log::info('Payment Data Before Creation:', $orderData);
 
                     // For ICS members, save to either cash_payments or gcash_payments table based on payment method
                     if ($validated['payer_type'] === 'ics_member') {
@@ -644,6 +816,7 @@ class PaymentController extends Controller
                             // Create a new cash payment record for each submission
                             $cashPayment = \App\Models\CashPayment::create([
                                 'user_id' => $user->id,
+                                'school_calendar_id' => SchoolCalendar::getCurrentCalendarId(),
                                 'email' => $user->email,
                                 'total_price' => $validated['total_price'],
                                 'purpose' => $validated['purpose'],
@@ -654,13 +827,14 @@ class PaymentController extends Controller
                                 'cash_proof_path' => $cashProofPath,
                                 'description' => $validated['description'] ?? null,
                             ]);
-                            \Log::info('Cash Payment Created:', ['id' => $cashPayment->id, 'data' => $cashPayment->toArray()]);
+                            Log::info('Cash Payment Created:', ['id' => $cashPayment->id, 'data' => $cashPayment->toArray()]);
 
                             $order = null; // No Order record needed
                         } else if ($validated['payment_method'] === 'GCASH') {
                             // Create a new GCash payment record for each submission
                             $gcashPayment = \App\Models\GcashPayment::create([
                                 'user_id' => $user->id,
+                                'school_calendar_id' => SchoolCalendar::getCurrentCalendarId(),
                                 'email' => $user->email,
                                 'total_price' => $validated['total_price'],
                                 'purpose' => $validated['purpose'],
@@ -672,21 +846,21 @@ class PaymentController extends Controller
                                 'gcash_proof_path' => $gcashProofPath,
                                 'description' => $validated['description'] ?? null,
                             ]);
-                            \Log::info('GCash Payment Created:', ['id' => $gcashPayment->id, 'data' => $gcashPayment->toArray()]);
+                            Log::info('GCash Payment Created:', ['id' => $gcashPayment->id, 'data' => $gcashPayment->toArray()]);
 
                             $order = null; // No Order record needed
                         } else {
-                            // Fallback to the original Order table if needed
-                            $order = Order::create($orderData);
-                            \Log::info('Order Created (fallback):', ['id' => $order->id, 'data' => $order->toArray()]);
+                            // We no longer use the Order table
+                            Log::warning('Unrecognized payment method: ' . $validated['payment_method']);
+                            throw new \Exception('Unrecognized payment method: ' . $validated['payment_method']);
                         }
                     } else {
-                        // For any other case, create an Order record as before
-                        $order = Order::create($orderData);
-                        \Log::info('Order Created:', ['id' => $order->id, 'data' => $order->toArray()]);
+                        // We no longer use the Order table
+                        Log::warning('Unrecognized payer type: ' . $validated['payer_type']);
+                        throw new \Exception('Unrecognized payer type: ' . $validated['payer_type']);
                     }
                 } else {
-                    \Log::info('Skipping payment creation for Non-ICS member payment');
+                    Log::info('Skipping payment creation for Non-ICS member payment');
                     $order = null; // Set to null since we're not creating an order
                 }
 
@@ -695,7 +869,7 @@ class PaymentController extends Controller
                 if ($order && $validated['payer_type'] === 'non_ics_member' && $nonIcsMember) {
                     // Ensure the non_ics_member_id is set correctly
                     if ($order->non_ics_member_id != $nonIcsMember->id) {
-                        \Log::warning('Order created with incorrect non_ics_member_id, fixing...', [
+                        Log::warning('Order created with incorrect non_ics_member_id, fixing...', [
                             'order_id' => $order->id,
                             'current_non_ics_member_id' => $order->non_ics_member_id,
                             'expected_non_ics_member_id' => $nonIcsMember->id
@@ -705,13 +879,13 @@ class PaymentController extends Controller
                         $order->is_non_ics_member = true;
                         $order->save();
 
-                        \Log::info('Order Updated After Creation:', [
+                        Log::info('Order Updated After Creation:', [
                             'id' => $order->id,
                             'non_ics_member_id' => $order->non_ics_member_id,
                             'is_non_ics_member' => $order->is_non_ics_member
                         ]);
                     } else {
-                        \Log::info('Order correctly linked to Non-ICS Member:', [
+                        Log::info('Order correctly linked to Non-ICS Member:', [
                             'order_id' => $order->id,
                             'non_ics_member_id' => $order->non_ics_member_id,
                             'non_ics_member_email' => $nonIcsMember->email
@@ -721,13 +895,13 @@ class PaymentController extends Controller
                     // Verify the relationship works
                     $relatedNonIcsMember = $order->nonIcsMember;
                     if ($relatedNonIcsMember) {
-                        \Log::info('Relationship verification successful:', [
+                        Log::info('Relationship verification successful:', [
                             'order_id' => $order->id,
                             'related_non_ics_member_id' => $relatedNonIcsMember->id,
                             'related_non_ics_member_email' => $relatedNonIcsMember->email
                         ]);
                     } else {
-                        \Log::warning('Relationship verification failed - nonIcsMember relationship returned null', [
+                        Log::warning('Relationship verification failed - nonIcsMember relationship returned null', [
                             'order_id' => $order->id,
                             'non_ics_member_id' => $order->non_ics_member_id
                         ]);
@@ -743,7 +917,7 @@ class PaymentController extends Controller
                 return redirect()->route('admin.payments.index')
                     ->with('success', $successMessage);
             } catch (\Exception $e) {
-                \Log::error('Payment Creation Failed:', [
+                Log::error('Payment Creation Failed:', [
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                     'data' => $orderData ?? []
@@ -765,16 +939,36 @@ class PaymentController extends Controller
      */
     public function show($id)
     {
-        $payment = Order::findOrFail($id);
-        $user = Auth::user();
+        // Check if it's a cash payment
+        try {
+            $payment = \App\Models\CashPayment::findOrFail($id);
+            $user = Auth::user();
 
-        // Allow admins to view any payment
-        // For regular members, only allow them to view their own payments
-        if (!$user->is_admin && $payment->user_id !== $user->id) {
-            abort(403, 'Unauthorized.');
+            // Allow admins to view any payment
+            // For regular members, only allow them to view their own payments
+            if (!$user->canManagePayments() && $payment->user_id !== $user->id) {
+                abort(403, 'Unauthorized.');
+            }
+
+            return view('payments.show', compact('payment'));
+        } catch (\Exception $e) {
+            // Not a cash payment, try GCash payment
+            try {
+                $payment = \App\Models\GcashPayment::findOrFail($id);
+                $user = Auth::user();
+
+                // Allow admins to view any payment
+                // For regular members, only allow them to view their own payments
+                if (!$user->canManagePayments() && $payment->user_id !== $user->id) {
+                    abort(403, 'Unauthorized.');
+                }
+
+                return view('payments.show', compact('payment'));
+            } catch (\Exception $e) {
+                // Not a GCash payment either, return 404
+                abort(404, 'Payment not found.');
+            }
         }
-
-        return view('payments.show', compact('payment'));
     }
 
     /**
@@ -782,15 +976,27 @@ class PaymentController extends Controller
      */
     public function edit($id)
     {
-        $payment = Order::findOrFail($id);
         $user = Auth::user();
 
         // Only admins can edit any payment
-        if (!$user->is_admin) {
+        if (!$user->canManagePayments()) {
             abort(403, 'Unauthorized.');
         }
 
-        return view('payments.edit', compact('payment'));
+        // Check if it's a cash payment
+        try {
+            $payment = \App\Models\CashPayment::findOrFail($id);
+            return view('payments.edit', compact('payment'));
+        } catch (\Exception $e) {
+            // Not a cash payment, try GCash payment
+            try {
+                $payment = \App\Models\GcashPayment::findOrFail($id);
+                return view('payments.edit', compact('payment'));
+            } catch (\Exception $e) {
+                // Not a GCash payment either, return 404
+                abort(404, 'Payment not found.');
+            }
+        }
     }
 
     /**
@@ -799,13 +1005,16 @@ class PaymentController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $payment = Order::findOrFail($id);
             $user = Auth::user();
 
             // Only admins can update any payment
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
+
+            // Ensure base64 directories exist
+            $this->ensureDirectoryExists('base64/payments/cash');
+            $this->ensureDirectoryExists('base64/payments/gcash');
 
             $validated = $request->validate([
                 'total_price' => 'required|numeric|min:0',
@@ -815,37 +1024,131 @@ class PaymentController extends Controller
                 // GCASH specific fields
                 'gcash_name' => 'required_if:payment_method,GCASH|string|nullable',
                 'gcash_num' => 'required_if:payment_method,GCASH|string|nullable',
-
                 'reference_number' => 'required_if:payment_method,GCASH|string|nullable',
+                'gcash_proof_of_payment' => 'nullable|file|mimes:jpg,jpeg|max:2048',
                 // CASH specific fields
                 'officer_in_charge' => 'required_if:payment_method,CASH|string|nullable',
                 'receipt_control_number' => 'required_if:payment_method,CASH|integer|nullable',
+                'cash_proof_of_payment' => 'nullable|file|mimes:jpg,jpeg|max:2048',
             ], [
                 'officer_in_charge.required_if' => 'The officer in charge field is required when payment method is CASH.',
                 'receipt_control_number.required_if' => 'The receipt control number field is required when payment method is CASH.',
                 'receipt_control_number.integer' => 'The receipt control number must be an integer.',
+                'gcash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
+                'cash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
             ]);
 
+            // Try to find the payment in either cash or gcash tables
+            $payment = null;
+            $paymentType = '';
 
+            // Check if it's a cash payment
+            try {
+                $payment = \App\Models\CashPayment::findOrFail($id);
+                $paymentType = 'cash';
+            } catch (\Exception $e) {
+                // Not a cash payment, try GCash payment
+                try {
+                    $payment = \App\Models\GcashPayment::findOrFail($id);
+                    $paymentType = 'gcash';
+                } catch (\Exception $e) {
+                    // Not found in either table
+                    abort(404, 'Payment not found.');
+                }
+            }
 
-            $payment->update([
-                'method' => $validated['payment_method'],
-                'total_price' => $validated['total_price'],
-                'description' => $validated['description'] ?? null,
-                // GCash details
-                'gcash_name' => $validated['gcash_name'] ?? null,
-                'gcash_num' => $validated['gcash_num'] ?? null,
-                'reference_number' => $validated['reference_number'] ?? null,
-                // Cash details
-                'officer_in_charge' => $validated['officer_in_charge'] ?? null,
-                'receipt_control_number' => $validated['receipt_control_number'] ?? null,
-                'payment_status' => $validated['payment_status']
-            ]);
+            // Handle file uploads
+            if ($paymentType === 'cash') {
+                $cashProofPath = $payment->cash_proof_path;
 
-            return redirect()->route('admin.payments.show', $payment->id)
+                if ($request->hasFile('cash_proof_of_payment')) {
+                    $cashProofFile = $request->file('cash_proof_of_payment');
+
+                    // Convert image to base64 and store in a file
+                    $newCashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                    if (!$newCashProofPath) {
+                        // Fallback to regular file storage if conversion fails
+                        $newCashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
+                        $cashProofFile->move(public_path('proofs'), $newCashProofPath);
+                        Log::info('Cash proof updated and stored as file: ' . $newCashProofPath);
+                    } else {
+                        Log::info('Cash proof updated and converted to base64 and stored in file: ' . $newCashProofPath);
+                    }
+
+                    // Delete old file if it exists
+                    if ($payment->cash_proof_path && file_exists(public_path($payment->cash_proof_path))) {
+                        unlink(public_path($payment->cash_proof_path));
+                    }
+
+                    $cashProofPath = $newCashProofPath;
+                }
+
+                // Update the cash payment record
+                $payment->update([
+                    'school_calendar_id' => SchoolCalendar::getCurrentCalendarId(),
+                    'total_price' => $validated['total_price'],
+                    'description' => $validated['description'] ?? null,
+                    'officer_in_charge' => $validated['officer_in_charge'] ?? null,
+                    'receipt_control_number' => $validated['receipt_control_number'] ?? null,
+                    'cash_proof_path' => $cashProofPath,
+                    'payment_status' => $validated['payment_status']
+                ]);
+
+                Log::info('Admin cash payment updated:', [
+                    'id' => $payment->id,
+                    'user_id' => $payment->user_id,
+                    'school_calendar_id' => SchoolCalendar::getCurrentCalendarId()
+                ]);
+            } else if ($paymentType === 'gcash') {
+                $gcashProofPath = $payment->gcash_proof_path;
+
+                if ($request->hasFile('gcash_proof_of_payment')) {
+                    $gcashProofFile = $request->file('gcash_proof_of_payment');
+
+                    // Convert image to base64 and store in a file
+                    $newGcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                    if (!$newGcashProofPath) {
+                        // Fallback to regular file storage if conversion fails
+                        $newGcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                        $gcashProofFile->move(public_path('proofs'), $newGcashProofPath);
+                        Log::info('GCash proof updated and stored as file: ' . $newGcashProofPath);
+                    } else {
+                        Log::info('GCash proof updated and converted to base64 and stored in file: ' . $newGcashProofPath);
+                    }
+
+                    // Delete old file if it exists
+                    if ($payment->gcash_proof_path && file_exists(public_path($payment->gcash_proof_path))) {
+                        unlink(public_path($payment->gcash_proof_path));
+                    }
+
+                    $gcashProofPath = $newGcashProofPath;
+                }
+
+                // Update the GCash payment record
+                $payment->update([
+                    'school_calendar_id' => SchoolCalendar::getCurrentCalendarId(),
+                    'total_price' => $validated['total_price'],
+                    'description' => $validated['description'] ?? null,
+                    'gcash_name' => $validated['gcash_name'] ?? null,
+                    'gcash_num' => $validated['gcash_num'] ?? null,
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'gcash_proof_path' => $gcashProofPath,
+                    'payment_status' => $validated['payment_status']
+                ]);
+
+                Log::info('Admin GCash payment updated:', [
+                    'id' => $payment->id,
+                    'user_id' => $payment->user_id,
+                    'school_calendar_id' => SchoolCalendar::getCurrentCalendarId()
+                ]);
+            }
+
+            return redirect()->route('admin.payments.index')
                 ->with('success', 'Payment updated successfully.');
         } catch (\Exception $e) {
-            \Log::error('Payment update failed: ' . $e->getMessage());
+            Log::error('Payment update failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to update payment. Please try again.')
                 ->withInput();
@@ -858,20 +1161,39 @@ class PaymentController extends Controller
     public function destroy($id)
     {
         try {
-            $payment = Order::findOrFail($id);
             $user = Auth::user();
 
             // Only admins can delete payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
+            // Try to find the payment in either cash or gcash tables
+            $payment = null;
+            $paymentType = '';
+
+            // Check if it's a cash payment
+            try {
+                $payment = \App\Models\CashPayment::findOrFail($id);
+                $paymentType = 'cash';
+            } catch (\Exception $e) {
+                // Not a cash payment, try GCash payment
+                try {
+                    $payment = \App\Models\GcashPayment::findOrFail($id);
+                    $paymentType = 'gcash';
+                } catch (\Exception $e) {
+                    // Not found in either table
+                    abort(404, 'Payment not found.');
+                }
+            }
+
+            // Delete the payment
             $payment->delete();
 
             return redirect()->route('admin.payments.index')
                 ->with('success', 'Payment deleted successfully.');
         } catch (\Exception $e) {
-            \Log::error('Payment deletion failed: ' . $e->getMessage());
+            Log::error('Payment deletion failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to delete payment. Please try again.');
         }
@@ -883,12 +1205,30 @@ class PaymentController extends Controller
     public function approve($id)
     {
         try {
-            $payment = Order::findOrFail($id);
             $user = Auth::user();
 
             // Only admins can approve payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
+            }
+
+            // Try to find the payment in either cash or gcash tables
+            $payment = null;
+            $paymentType = '';
+
+            // Check if it's a cash payment
+            try {
+                $payment = \App\Models\CashPayment::findOrFail($id);
+                $paymentType = 'cash';
+            } catch (\Exception $e) {
+                // Not a cash payment, try GCash payment
+                try {
+                    $payment = \App\Models\GcashPayment::findOrFail($id);
+                    $paymentType = 'gcash';
+                } catch (\Exception $e) {
+                    // Not found in either table
+                    abort(404, 'Payment not found.');
+                }
             }
 
             if ($payment->payment_status !== 'Pending') {
@@ -896,15 +1236,19 @@ class PaymentController extends Controller
                     ->with('error', 'Only pending payments can be approved.');
             }
 
+            $officerName = isset($user->firstname) && isset($user->lastname)
+                ? "{$user->firstname} {$user->lastname}"
+                : ($user->name ?? 'Admin');
+
             $payment->update([
                 'payment_status' => 'Paid',
-                'officer_in_charge' => $user->firstname . ' ' . $user->lastname
+                'officer_in_charge' => $officerName
             ]);
 
             return redirect()->route('admin.payments.index')
                 ->with('success', 'Payment approved successfully.');
         } catch (\Exception $e) {
-            \Log::error('Payment approval failed: ' . $e->getMessage());
+            Log::error('Payment approval failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to approve payment. Please try again.');
         }
@@ -916,12 +1260,30 @@ class PaymentController extends Controller
     public function reject($id)
     {
         try {
-            $payment = Order::findOrFail($id);
             $user = Auth::user();
 
             // Only admins can reject payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
+            }
+
+            // Try to find the payment in either cash or gcash tables
+            $payment = null;
+            $paymentType = '';
+
+            // Check if it's a cash payment
+            try {
+                $payment = \App\Models\CashPayment::findOrFail($id);
+                $paymentType = 'cash';
+            } catch (\Exception $e) {
+                // Not a cash payment, try GCash payment
+                try {
+                    $payment = \App\Models\GcashPayment::findOrFail($id);
+                    $paymentType = 'gcash';
+                } catch (\Exception $e) {
+                    // Not found in either table
+                    abort(404, 'Payment not found.');
+                }
             }
 
             if ($payment->payment_status !== 'Pending') {
@@ -929,15 +1291,19 @@ class PaymentController extends Controller
                     ->with('error', 'Only pending payments can be rejected.');
             }
 
+            $officerName = isset($user->firstname) && isset($user->lastname)
+                ? "{$user->firstname} {$user->lastname}"
+                : ($user->name ?? 'Admin');
+
             $payment->update([
                 'payment_status' => 'Rejected',
-                'officer_in_charge' => $user->firstname . ' ' . $user->lastname
+                'officer_in_charge' => $officerName
             ]);
 
             return redirect()->route('admin.payments.index')
                 ->with('success', 'Payment rejected successfully.');
         } catch (\Exception $e) {
-            \Log::error('Payment rejection failed: ' . $e->getMessage());
+            Log::error('Payment rejection failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to reject payment. Please try again.');
         }
@@ -953,7 +1319,7 @@ class PaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can approve payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -962,15 +1328,19 @@ class PaymentController extends Controller
                     ->with('error', 'Only pending payments can be approved.');
             }
 
+            $officerName = isset($user->firstname) && isset($user->lastname)
+                ? "{$user->firstname} {$user->lastname}"
+                : ($user->name ?? 'Admin');
+
             $nonIcsMember->update([
                 'payment_status' => 'Paid',
-                'officer_in_charge' => $user->firstname . ' ' . $user->lastname
+                'officer_in_charge' => $officerName
             ]);
 
             return redirect()->route('admin.non-ics-members.index')
                 ->with('success', 'Non-ICS member payment approved successfully.');
         } catch (\Exception $e) {
-            \Log::error('Non-ICS member payment approval failed: ' . $e->getMessage());
+            Log::error('Non-ICS member payment approval failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to approve payment. Please try again.');
         }
@@ -982,32 +1352,56 @@ class PaymentController extends Controller
     public function rejectNonIcs($id)
     {
         try {
+            Log::info('Rejecting non-ICS member payment', ['id' => $id, 'request_data' => request()->all()]);
+
             $nonIcsMember = NonIcsMember::findOrFail($id);
+            Log::info('Found non-ICS member', ['id' => $nonIcsMember->id, 'email' => $nonIcsMember->email, 'status' => $nonIcsMember->payment_status]);
+
             $user = Auth::user();
+            Log::info('User info', ['id' => $user->id, 'can_manage_payments' => $user->canManagePayments()]);
 
             // Only admins can reject payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
+                Log::warning('Unauthorized attempt to reject payment', ['user_id' => $user->id]);
                 abort(403, 'Unauthorized.');
             }
 
             if ($nonIcsMember->payment_status !== 'Pending') {
+                Log::warning('Attempt to reject non-pending payment', ['payment_status' => $nonIcsMember->payment_status]);
                 return redirect()->back()
                     ->with('error', 'Only pending payments can be rejected.');
             }
 
-            $nonIcsMember->update([
-                'payment_status' => 'Rejected',
-                'officer_in_charge' => $user->firstname . ' ' . $user->lastname
-            ]);
+            // Check if the user has firstname and lastname fields
+            $officerName = isset($user->firstname) && isset($user->lastname)
+                ? "{$user->firstname} {$user->lastname}"
+                : ($user->name ?? 'Admin');
+
+            // Use the update method with quoted values
+            DB::table('non_ics_members')
+                ->where('id', $nonIcsMember->id)
+                ->update([
+                    'payment_status' => 'Rejected',
+                    'officer_in_charge' => $officerName,
+                    'updated_at' => now()
+                ]);
+
+            Log::info('Non-ICS member payment rejected successfully', ['id' => $nonIcsMember->id, 'new_status' => 'Rejected']);
 
             return redirect()->route('admin.non-ics-members.index')
                 ->with('success', 'Non-ICS member payment rejected successfully.');
         } catch (\Exception $e) {
-            \Log::error('Non-ICS member payment rejection failed: ' . $e->getMessage());
+            Log::error('Non-ICS member payment rejection failed', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->back()
-                ->with('error', 'Failed to reject payment. Please try again.');
+                ->with('error', 'Failed to reject payment: ' . $e->getMessage());
         }
     }
+
+
 
     /**
      * Show non-ICS member payment details.
@@ -1019,15 +1413,157 @@ class PaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can view non-ICS member payment details
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
             return view('payments.show', compact('payment'));
         } catch (\Exception $e) {
-            \Log::error('Failed to show non-ICS member payment: ' . $e->getMessage());
+            Log::error('Failed to show non-ICS member payment: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to show payment details. Please try again.');
+        }
+    }
+
+    /**
+     * Show the form for editing a non-ICS member payment.
+     */
+    public function editNonIcs($id)
+    {
+        try {
+            $nonIcsMember = NonIcsMember::findOrFail($id);
+            $user = Auth::user();
+
+            // Only admins can edit non-ICS member payments
+            if (!$user->canManagePayments()) {
+                abort(403, 'Unauthorized.');
+            }
+
+            // Get all admin users for officer selection
+            $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
+                ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
+                ->orderBy('lastname')
+                ->orderBy('firstname')
+                ->get()
+                ->map(function ($user) {
+                    $user->fullname = trim(implode(' ', array_filter([
+                        $user->firstname,
+                        $user->middlename,
+                        $user->lastname,
+                        $user->suffix
+                    ])));
+                    return $user;
+                });
+
+            return view('payments.edit-non-ics', compact('nonIcsMember', 'officers'));
+        } catch (\Exception $e) {
+            Log::error('Failed to edit non-ICS member payment: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Failed to edit payment details. Please try again.');
+        }
+    }
+
+    /**
+     * Update a non-ICS member payment.
+     */
+    public function updateNonIcs(Request $request, $id)
+    {
+        try {
+            $nonIcsMember = NonIcsMember::findOrFail($id);
+            $user = Auth::user();
+
+            // Only admins can update non-ICS member payments
+            if (!$user->canManagePayments()) {
+                abort(403, 'Unauthorized.');
+            }
+
+            // Ensure base64 directories exist
+            $this->ensureDirectoryExists('base64/payments/cash');
+            $this->ensureDirectoryExists('base64/payments/gcash');
+
+            // Validate the request
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'fullname' => 'required|string|max:100',
+                'course_year_section' => 'required|string|max:50',
+                'mobile_no' => 'nullable|string|max:20',
+                'total_price' => 'required|numeric|min:0',
+                'purpose' => 'required|string',
+                'description' => 'nullable|string',
+                'payment_status' => 'required|string|in:Paid,Pending',
+                'method' => 'required|string|in:CASH,GCASH',
+                // GCASH specific fields
+                'gcash_name' => 'required_if:method,GCASH|nullable|string',
+                'gcash_num' => 'required_if:method,GCASH|nullable|string',
+                'reference_number' => 'required_if:method,GCASH|nullable|string',
+                'gcash_proof' => 'nullable|file|mimes:jpg,jpeg|max:2048',
+                // CASH specific fields
+                'officer_in_charge' => 'required_if:method,CASH|nullable|string',
+                'receipt_control_number' => 'required_if:method,CASH|nullable|integer',
+                'cash_proof' => 'nullable|file|mimes:jpg,jpeg|max:2048',
+            ], [
+                'gcash_proof.mimes' => 'The proof of payment must be a JPG file.',
+                'cash_proof.mimes' => 'The proof of payment must be a JPG file.',
+            ]);
+
+            // Update the non-ICS member payment
+            $nonIcsMember->update($validated);
+
+            // Handle file uploads if provided
+            if ($request->hasFile('gcash_proof')) {
+                $gcashProofFile = $request->file('gcash_proof');
+
+                // Convert image to base64 and store in a file
+                $gcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                if (!$gcashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $path = $gcashProofFile->store('payments/gcash', 'public');
+                    $gcashProofPath = 'storage/' . $path;
+                    Log::info('Non-ICS GCash proof stored as file: ' . $gcashProofPath);
+                } else {
+                    Log::info('Non-ICS GCash proof converted to base64 and stored in file: ' . $gcashProofPath);
+                }
+
+                // Delete old file if it exists
+                if ($nonIcsMember->gcash_proof_path && file_exists(public_path($nonIcsMember->gcash_proof_path))) {
+                    unlink(public_path($nonIcsMember->gcash_proof_path));
+                }
+
+                $nonIcsMember->update(['gcash_proof_path' => $gcashProofPath]);
+            }
+
+            if ($request->hasFile('cash_proof')) {
+                $cashProofFile = $request->file('cash_proof');
+
+                // Convert image to base64 and store in a file
+                $cashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                if (!$cashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $path = $cashProofFile->store('payments/cash', 'public');
+                    $cashProofPath = 'storage/' . $path;
+                    Log::info('Non-ICS Cash proof stored as file: ' . $cashProofPath);
+                } else {
+                    Log::info('Non-ICS Cash proof converted to base64 and stored in file: ' . $cashProofPath);
+                }
+
+                // Delete old file if it exists
+                if ($nonIcsMember->cash_proof_path && file_exists(public_path($nonIcsMember->cash_proof_path))) {
+                    unlink(public_path($nonIcsMember->cash_proof_path));
+                }
+
+                $nonIcsMember->update(['cash_proof_path' => $cashProofPath]);
+            }
+
+            // Redirect to the main payments page instead of the details page
+            return redirect()->route('admin.payments.index')
+                ->with('success', 'Non-ICS member payment updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update non-ICS member payment: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Failed to update payment details: ' . $e->getMessage())
+                ->withInput();
         }
     }
 
@@ -1037,32 +1573,8 @@ class PaymentController extends Controller
     {
         $user = auth()->user();
 
-        // Base query for the authenticated user's payments
-        $query = Order::where('user_id', $user->id)
-            ->orderBy('created_at', 'desc');
-
-        // Apply search filter
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('id', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        // Apply payment method filter
-        if ($request->has('payment_method') && $request->payment_method !== '') {
-            $query->where('method', $request->payment_method);
-        }
-
-        // Apply payment status filter
-        if ($request->has('payment_status') && $request->payment_status !== '') {
-            $query->where('payment_status', $request->payment_status);
-        }
-
-        // Get paginated results
-        $payments = $query->paginate(10);
+        // Initialize empty payments collection since we no longer use the Order table
+        $payments = collect([]);
 
         // Get cash payments
         $cashQuery = \App\Models\CashPayment::where('user_id', $user->id);
@@ -1112,20 +1624,10 @@ class PaymentController extends Controller
 
         $gcashPayments = $gcashQuery->orderBy('created_at', 'desc')->paginate(5, ['*'], 'gcash_page');
 
-        // Calculate statistics - using separate queries to avoid query builder issues
-        $totalPayments = Order::where('user_id', $user->id)
-            ->where('payment_status', 'Paid')
-            ->sum('total_price');
-
-        $thisMonthPayments = Order::where('user_id', $user->id)
-            ->where('payment_status', 'Paid')
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->sum('total_price');
-
-        $pendingPayments = Order::where('user_id', $user->id)
-            ->where('payment_status', 'Pending')
-            ->sum('total_price');
+        // Calculate statistics - initialize to 0
+        $totalPayments = 0;
+        $thisMonthPayments = 0;
+        $pendingPayments = 0;
 
         // Add cash payments statistics
         $totalPayments += \App\Models\CashPayment::where('user_id', $user->id)
@@ -1168,7 +1670,7 @@ class PaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to access this page
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.payments.create')
                 ->with('error', 'Please use the admin payment creation form.');
         }
@@ -1181,7 +1683,12 @@ class PaymentController extends Controller
             $user->suffix
         ])));
 
-        return view('payments.member-create', compact('user', 'memberName'));
+        // Fetch active payment fees
+        $paymentFees = PaymentFee::where('is_active', true)
+                        ->orderBy('purpose')
+                        ->get();
+
+        return view('payments.member-create', compact('user', 'memberName', 'paymentFees'));
     }
 
     /**
@@ -1192,9 +1699,22 @@ class PaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to use this method
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.payments.index')
                 ->with('error', 'Please use the admin payment creation form.');
+        }
+
+        // Ensure base64 directories exist
+        $this->ensureDirectoryExists('base64/payments/cash');
+        $this->ensureDirectoryExists('base64/payments/gcash');
+
+        // Check if there is a current school calendar
+        $schoolCalendarId = SchoolCalendar::getCurrentCalendarId();
+        if (!$schoolCalendarId) {
+            Log::error('No current school calendar found when creating payment');
+            return redirect()->back()
+                ->with('error', 'No active academic year found. Please contact an administrator.')
+                ->withInput();
         }
 
         try {
@@ -1232,21 +1752,45 @@ class PaymentController extends Controller
 
             if ($request->hasFile('gcash_proof_of_payment') && $validated['payment_method'] === 'GCASH') {
                 $gcashProofFile = $request->file('gcash_proof_of_payment');
-                $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+
+                // Convert image to base64 and store in a file
+                $gcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                if (!$gcashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                    $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+                    Log::info('GCash proof stored as file: ' . $gcashProofPath);
+                } else {
+                    Log::info('GCash proof converted to base64 and stored in file: ' . $gcashProofPath);
+                }
             }
 
             if ($request->hasFile('cash_proof_of_payment') && $validated['payment_method'] === 'CASH') {
                 $cashProofFile = $request->file('cash_proof_of_payment');
-                $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
-                $cashProofFile->move(public_path('proofs'), $cashProofPath);
+
+                // Convert image to base64 and store in a file
+                $cashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                if (!$cashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
+                    $cashProofFile->move(public_path('proofs'), $cashProofPath);
+                    Log::info('Cash proof stored as file: ' . $cashProofPath);
+                } else {
+                    Log::info('Cash proof converted to base64 and stored in file: ' . $cashProofPath);
+                }
             }
 
             // Create the payment record based on payment method
             if ($validated['payment_method'] === 'CASH') {
+                // Get the current school calendar ID
+                $schoolCalendarId = SchoolCalendar::getCurrentCalendarId();
+
                 // Create a cash payment record
-                $payment = \App\Models\CashPayment::create([
+                $payment = CashPayment::create([
                     'user_id' => $user->id,
+                    'school_calendar_id' => $schoolCalendarId, // Add school calendar ID
                     'email' => $user->email,
                     'total_price' => $validated['total_price'],
                     'purpose' => $validated['purpose'],
@@ -1258,15 +1802,25 @@ class PaymentController extends Controller
                     'description' => $validated['description'] ?? null,
                 ]);
 
-                \Log::info('Member cash payment created:', ['id' => $payment->id, 'user_id' => $user->id]);
+                Log::info('Member cash payment created:', [
+                    'id' => $payment->id,
+                    'user_id' => $user->id,
+                    'school_calendar_id' => $schoolCalendarId
+                ]);
 
                 return redirect()->route('client.payments.index')
                     ->with('success', "Cash payment #{$payment->id} submitted successfully. It is pending approval from an administrator.");
             }
             else if ($validated['payment_method'] === 'GCASH') {
+                // Get the current school calendar ID (reuse if already fetched)
+                if (!isset($schoolCalendarId)) {
+                    $schoolCalendarId = SchoolCalendar::getCurrentCalendarId();
+                }
+
                 // Create a GCash payment record
-                $payment = \App\Models\GcashPayment::create([
+                $payment = GcashPayment::create([
                     'user_id' => $user->id,
+                    'school_calendar_id' => $schoolCalendarId, // Add school calendar ID
                     'email' => $user->email,
                     'total_price' => $validated['total_price'],
                     'purpose' => $validated['purpose'],
@@ -1279,39 +1833,25 @@ class PaymentController extends Controller
                     'description' => $validated['description'] ?? null,
                 ]);
 
-                \Log::info('Member GCash payment created:', ['id' => $payment->id, 'user_id' => $user->id]);
+                Log::info('Member GCash payment created:', [
+                    'id' => $payment->id,
+                    'user_id' => $user->id,
+                    'school_calendar_id' => $schoolCalendarId
+                ]);
 
                 return redirect()->route('client.payments.index')
                     ->with('success', "GCash payment #{$payment->id} submitted successfully. It is pending approval from an administrator.");
             }
             else {
-                // Fallback to the original Order table if needed
-                $payment = Order::create([
-                    'user_id' => $user->id,
-                    'method' => $validated['payment_method'],
-                    'total_price' => $validated['total_price'],
-                    'purpose' => $validated['purpose'],
-                    'description' => $validated['description'] ?? null,
-                    // GCash details
-                    'gcash_name' => $validated['gcash_name'] ?? null,
-                    'gcash_num' => $validated['gcash_num'] ?? null,
-                    'reference_number' => $validated['reference_number'] ?? null,
-                    'gcash_proof_path' => $gcashProofPath,
-                    // Cash details
-                    'receipt_control_number' => $validated['receipt_control_number'] ?? null,
-                    'cash_proof_path' => $cashProofPath,
-                    'placed_on' => now()->format('Y-m-d H:i:s'),
-                    'payment_status' => 'Pending' // Members can only submit pending payments
-                ]);
-
-                \Log::info('Member payment created (fallback):', ['id' => $payment->id, 'user_id' => $user->id]);
-
-                return redirect()->route('client.payments.index')
-                    ->with('success', "Payment #{$payment->id} submitted successfully. It is pending approval from an administrator.");
+                // We no longer use the Order table, so we'll just log a warning and return an error
+                Log::warning('Payment method not recognized: ' . $validated['payment_method']);
+                return redirect()->back()
+                    ->with('error', 'Invalid payment method. Please select either CASH or GCASH.')
+                    ->withInput();
             }
 
         } catch (\Exception $e) {
-            \Log::error('Member payment submission failed: ' . $e->getMessage());
+            Log::error('Member payment submission failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to submit payment: ' . $e->getMessage())
                 ->withInput();
@@ -1326,7 +1866,7 @@ class PaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to access this page
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.payments.edit', $id)
                 ->with('error', 'Please use the admin payment edit form.');
         }
@@ -1357,17 +1897,7 @@ class PaymentController extends Controller
             }
         }
 
-        // Check in Order table if still not found
-        if (!$payment) {
-            $orderPayment = Order::where('id', $id)
-                ->where('user_id', $user->id)
-                ->first();
-
-            if ($orderPayment) {
-                $payment = $orderPayment;
-                $paymentType = 'order';
-            }
-        }
+        // We no longer use the Order table
 
         if (!$payment) {
             return redirect()->route('client.payments.index')
@@ -1399,9 +1929,22 @@ class PaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to use this method
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.payments.index')
                 ->with('error', 'Please use the admin payment edit form.');
+        }
+
+        // Ensure base64 directories exist
+        $this->ensureDirectoryExists('base64/payments/cash');
+        $this->ensureDirectoryExists('base64/payments/gcash');
+
+        // Check if there is a current school calendar
+        $schoolCalendarId = SchoolCalendar::getCurrentCalendarId();
+        if (!$schoolCalendarId) {
+            Log::error('No current school calendar found when updating payment');
+            return redirect()->back()
+                ->with('error', 'No active academic year found. Please contact an administrator.')
+                ->withInput();
         }
 
         // Try to find the payment in different tables
@@ -1430,17 +1973,7 @@ class PaymentController extends Controller
             }
         }
 
-        // Check in Order table if still not found
-        if (!$payment) {
-            $orderPayment = Order::where('id', $id)
-                ->where('user_id', $user->id)
-                ->first();
-
-            if ($orderPayment) {
-                $payment = $orderPayment;
-                $paymentType = 'order';
-            }
-        }
+        // We no longer use the Order table
 
         if (!$payment) {
             return redirect()->route('client.payments.index')
@@ -1483,17 +2016,33 @@ class PaymentController extends Controller
 
                 if ($request->hasFile('cash_proof_of_payment')) {
                     $cashProofFile = $request->file('cash_proof_of_payment');
-                    $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
-                    $cashProofFile->move(public_path('proofs'), $cashProofPath);
+
+                    // Convert image to base64 and store in a file
+                    $newCashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                    if (!$newCashProofPath) {
+                        // Fallback to regular file storage if conversion fails
+                        $newCashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
+                        $cashProofFile->move(public_path('proofs'), $newCashProofPath);
+                        Log::info('Cash proof updated and stored as file: ' . $newCashProofPath);
+                    } else {
+                        Log::info('Cash proof updated and converted to base64 and stored in file: ' . $newCashProofPath);
+                    }
 
                     // Delete old file if it exists
                     if ($payment->cash_proof_path && file_exists(public_path($payment->cash_proof_path))) {
                         unlink(public_path($payment->cash_proof_path));
                     }
+
+                    $cashProofPath = $newCashProofPath;
                 }
+
+                // Get the current school calendar ID
+                $schoolCalendarId = SchoolCalendar::getCurrentCalendarId();
 
                 // Update the cash payment record
                 $payment->update([
+                    'school_calendar_id' => $schoolCalendarId, // Add school calendar ID
                     'total_price' => $validated['total_price'],
                     'purpose' => $validated['purpose'],
                     'officer_in_charge' => $validated['officer_in_charge'] ?? null,
@@ -1502,24 +2051,46 @@ class PaymentController extends Controller
                     'description' => $validated['description'] ?? null,
                 ]);
 
-                \Log::info('Member cash payment updated:', ['id' => $payment->id, 'user_id' => $user->id]);
+                Log::info('Member cash payment updated:', [
+                    'id' => $payment->id,
+                    'user_id' => $user->id,
+                    'school_calendar_id' => $schoolCalendarId
+                ]);
             }
             else if ($paymentType === 'gcash') {
                 $gcashProofPath = $payment->gcash_proof_path;
 
                 if ($request->hasFile('gcash_proof_of_payment')) {
                     $gcashProofFile = $request->file('gcash_proof_of_payment');
-                    $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                    $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+
+                    // Convert image to base64 and store in a file
+                    $newGcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                    if (!$newGcashProofPath) {
+                        // Fallback to regular file storage if conversion fails
+                        $newGcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                        $gcashProofFile->move(public_path('proofs'), $newGcashProofPath);
+                        Log::info('GCash proof updated and stored as file: ' . $newGcashProofPath);
+                    } else {
+                        Log::info('GCash proof updated and converted to base64 and stored in file: ' . $newGcashProofPath);
+                    }
 
                     // Delete old file if it exists
                     if ($payment->gcash_proof_path && file_exists(public_path($payment->gcash_proof_path))) {
                         unlink(public_path($payment->gcash_proof_path));
                     }
+
+                    $gcashProofPath = $newGcashProofPath;
+                }
+
+                // Get the current school calendar ID (reuse if already fetched)
+                if (!isset($schoolCalendarId)) {
+                    $schoolCalendarId = SchoolCalendar::getCurrentCalendarId();
                 }
 
                 // Update the GCash payment record
                 $payment->update([
+                    'school_calendar_id' => $schoolCalendarId, // Add school calendar ID
                     'total_price' => $validated['total_price'],
                     'purpose' => $validated['purpose'],
                     'gcash_name' => $validated['gcash_name'] ?? null,
@@ -1529,63 +2100,42 @@ class PaymentController extends Controller
                     'description' => $validated['description'] ?? null,
                 ]);
 
-                \Log::info('Member GCash payment updated:', ['id' => $payment->id, 'user_id' => $user->id]);
+                Log::info('Member GCash payment updated:', [
+                    'id' => $payment->id,
+                    'user_id' => $user->id,
+                    'school_calendar_id' => $schoolCalendarId
+                ]);
             }
             else {
-                // Handle file uploads for Order table
-                $gcashProofPath = $payment->gcash_proof_path;
-                $cashProofPath = $payment->cash_proof_path;
-
-                if ($request->hasFile('gcash_proof_of_payment') && $validated['payment_method'] === 'GCASH') {
-                    $gcashProofFile = $request->file('gcash_proof_of_payment');
-                    $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                    $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
-
-                    // Delete old file if it exists
-                    if ($payment->gcash_proof_path && file_exists(public_path($payment->gcash_proof_path))) {
-                        unlink(public_path($payment->gcash_proof_path));
-                    }
-                }
-
-                if ($request->hasFile('cash_proof_of_payment') && $validated['payment_method'] === 'CASH') {
-                    $cashProofFile = $request->file('cash_proof_of_payment');
-                    $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
-                    $cashProofFile->move(public_path('proofs'), $cashProofPath);
-
-                    // Delete old file if it exists
-                    if ($payment->cash_proof_path && file_exists(public_path($payment->cash_proof_path))) {
-                        unlink(public_path($payment->cash_proof_path));
-                    }
-                }
-
-                // Update the payment record in the Order table
-                $payment->update([
-                    'method' => $validated['payment_method'],
-                    'total_price' => $validated['total_price'],
-                    'purpose' => $validated['purpose'],
-                    'description' => $validated['description'] ?? null,
-                    // GCash details
-                    'gcash_name' => $validated['gcash_name'] ?? null,
-                    'gcash_num' => $validated['gcash_num'] ?? null,
-                    'reference_number' => $validated['reference_number'] ?? null,
-                    'gcash_proof_path' => $validated['payment_method'] === 'GCASH' ? $gcashProofPath : null,
-                    // Cash details
-                    'officer_in_charge' => $validated['officer_in_charge'] ?? null,
-                    'receipt_control_number' => $validated['receipt_control_number'] ?? null,
-                    'cash_proof_path' => $validated['payment_method'] === 'CASH' ? $cashProofPath : null,
-                ]);
-
-                \Log::info('Member payment updated (Order table):', ['id' => $payment->id, 'user_id' => $user->id]);
+                // We no longer use the Order table
+                Log::warning('Payment type not recognized: ' . $paymentType);
+                return redirect()->route('client.payments.index')
+                    ->with('error', 'Invalid payment type. Please contact an administrator.');
             }
 
             return redirect()->route('client.payments.index')
                 ->with('success', 'Payment updated successfully. It is still pending approval from an administrator.');
 
         } catch (\Exception $e) {
-            \Log::error('Member payment update failed: ' . $e->getMessage());
+            Log::error('Member payment update failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to update payment: ' . $e->getMessage())
                 ->withInput();
         }
+    }
+
+    /**
+     * Ensure a directory exists, creating it if necessary
+     *
+     * @param string $path
+     * @return bool
+     */
+    private function ensureDirectoryExists(string $path): bool
+    {
+        $fullPath = public_path($path);
+        if (!file_exists($fullPath)) {
+            return mkdir($fullPath, 0755, true);
+        }
+        return true;
     }
 }

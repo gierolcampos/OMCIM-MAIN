@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-@if(!Auth::user()->is_admin)
+@if(!Auth::user()->canManagePayments())
 <div class="py-12 bg-gray-50">
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
         <div class="bg-white overflow-hidden shadow-lg rounded-xl">

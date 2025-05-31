@@ -60,6 +60,13 @@
                     <div>
                         <h1 class="text-2xl font-bold text-gray-800">My Payments</h1>
                         <p class="text-gray-600 mt-1">View your payment history and pending payments</p>
+                        @if(isset($currentCalendar))
+                        <div class="mt-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {{ $currentCalendar->school_calendar_desc }}
+                            </span>
+                        </div>
+                        @endif
                     </div>
                     <div>
                         <a href="{{ route('client.payments.create') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-white bg-[#c21313] hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#c21313] transition transform hover:scale-105">
@@ -113,6 +120,20 @@
                                 <option value="Rejected" {{ request('payment_status') == 'Rejected' ? 'selected' : '' }}>Rejected</option>
                             </select>
                         </div>
+                        @if(isset($schoolCalendars) && count($schoolCalendars) > 0)
+                        <div>
+                            <label for="school_calendar_id" class="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+                            <select id="school_calendar_id" name="school_calendar_id" class="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg shadow-sm">
+                                <option value="">All Academic Years</option>
+                                @foreach($schoolCalendars as $calendar)
+                                    <option value="{{ $calendar->id }}" {{ request('school_calendar_id') == $calendar->id ? 'selected' : '' }}>
+                                        {{ $calendar->school_calendar_short_desc }}
+                                        @if($calendar->is_selected) (Current) @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
                         <div class="md:col-span-3 flex items-center gap-4">
                             <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-white bg-[#c21313] hover:bg-red-800 transition">
                                 <i class="fas fa-filter mr-2"></i> Apply Filters
@@ -140,48 +161,8 @@
                         <tbody class="bg-white divide-y divide-gray-200">
                             @php $hasPayments = false; @endphp
 
-                            <!-- Original payments from Order table -->
-                            @forelse($payments as $payment)
-                                @php $hasPayments = true; @endphp
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        #{{ $payment->id }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        ₱{{ number_format($payment->total_price, 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                            {{ $payment->method === 'CASH' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800' }}">
-                                            {{ $payment->method }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ \Carbon\Carbon::parse($payment->placed_on)->format('M d, Y h:i A') }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                            {{ $payment->payment_status === 'Paid' ? 'bg-green-100 text-green-800' :
-                                               ($payment->payment_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
-                                            {{ $payment->payment_status }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div class="flex justify-end space-x-2">
-                                            <a href="{{ route('client.payments.show', $payment->id) }}" class="text-[#c21313] hover:text-red-800" title="View Details">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            @if($payment->payment_status === 'Pending')
-                                                <a href="{{ route('client.payments.edit', $payment->id) }}" class="text-[#c21313] hover:text-red-800" title="Edit Payment">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                @php $hasPayments = false; @endphp
-                            @endforelse
+                            <!-- We no longer use the Order table, so we don't need to display $payments -->
+                            @php $hasPayments = false; @endphp
 
                             <!-- Cash payments from cash_payments table -->
                             @foreach($cashPayments as $payment)
@@ -284,31 +265,20 @@
                 <div class="mt-6 flex flex-col sm:flex-row items-center justify-between">
                     <div class="text-sm text-gray-700 font-medium mb-4 sm:mb-0">
                         @php
-                            $totalCount = $payments->total() + $cashPayments->total() + $gcashPayments->total();
-                            $firstItem = min(
-                                $payments->isEmpty() ? PHP_INT_MAX : $payments->firstItem(),
-                                $cashPayments->isEmpty() ? PHP_INT_MAX : $cashPayments->firstItem(),
-                                $gcashPayments->isEmpty() ? PHP_INT_MAX : $gcashPayments->firstItem()
-                            );
-                            $firstItem = $firstItem === PHP_INT_MAX ? 0 : $firstItem;
-
-                            $lastItem = max(
-                                $payments->isEmpty() ? 0 : $payments->lastItem(),
-                                $cashPayments->isEmpty() ? 0 : $cashPayments->lastItem(),
-                                $gcashPayments->isEmpty() ? 0 : $gcashPayments->lastItem()
-                            );
+                            // Calculate total count from cash and gcash payments
+                            $totalCount = $cashPayments->count() + $gcashPayments->count();
                         @endphp
 
                         @if($totalCount > 0)
-                            Showing <span class="font-bold text-indigo-600">{{ $firstItem }}</span>
-                            to <span class="font-bold text-indigo-600">{{ $lastItem }}</span>
-                            of <span class="font-bold text-indigo-600">{{ $totalCount }}</span> payments
+                            Showing <span class="font-bold text-[#c21313]">{{ $totalCount }}</span> payments
                         @else
                             No payments found
                         @endif
                     </div>
                     <div class="flex space-x-4">
-                        {{ $payments->appends(['cash_page' => $cashPayments->currentPage(), 'gcash_page' => $gcashPayments->currentPage()])->links() }}
+                        <!-- We're not using the $payments collection anymore -->
+                        <!-- Instead, we're displaying cash and gcash payments separately -->
+                        <!-- No pagination needed here as we're showing all payments -->
                     </div>
                 </div>
             </div>

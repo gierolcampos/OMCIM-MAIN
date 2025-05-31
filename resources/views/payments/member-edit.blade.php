@@ -83,20 +83,6 @@
                             @enderror
                         </div>
 
-                        <!-- Amount -->
-                        <div>
-                            <label for="total_price" class="block text-sm font-medium text-gray-700 mb-1">Amount (₱) <span class="text-red-500">*</span></label>
-                            <div class="relative rounded-lg shadow-sm">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span class="text-gray-500 sm:text-sm">₱</span>
-                                </div>
-                                <input type="number" step="0.01" min="0" id="total_price" name="total_price" value="{{ old('total_price', $payment->total_price) }}" class="block w-full pl-7 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="0.00" required>
-                            </div>
-                            @error('total_price')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
                         <!-- Purpose -->
                         <div>
                             <label for="purpose" class="block text-sm font-medium text-gray-700 mb-1">Purpose <span class="text-red-500">*</span></label>
@@ -108,6 +94,21 @@
                                 <option value="Other" {{ old('purpose', $payment->purpose) == 'Other' ? 'selected' : '' }}>Other</option>
                             </select>
                             @error('purpose')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Amount -->
+                        <div>
+                            <label for="total_price" class="block text-sm font-medium text-gray-700 mb-1">Amount (₱) <span class="text-red-500">*</span></label>
+                            <div class="relative rounded-lg shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 sm:text-sm">₱</span>
+                                </div>
+                                <input type="number" step="0.01" min="0" id="total_price" name="total_price" value="{{ old('total_price', $payment->total_price) }}" class="block w-full pl-7 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-gray-50" placeholder="0.00" required readonly>
+                                <p class="mt-1 text-xs text-gray-500">Amount is automatically set based on the selected purpose.</p>
+                            </div>
+                            @error('total_price')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
@@ -167,9 +168,22 @@
                                 @if($payment->cash_proof_path)
                                     <div class="mb-2">
                                         <p class="text-sm text-gray-600">Current proof of payment:</p>
-                                        <a href="{{ asset($payment->cash_proof_path) }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                        @php
+                                            $proofPath = $payment->cash_proof_path;
+                                            // Check if it's a base64 file
+                                            if (strpos($proofPath, 'base64/') === 0 && file_exists(public_path($proofPath))) {
+                                                $base64Content = file_get_contents(public_path($proofPath));
+                                                $viewUrl = $base64Content;
+                                            } else {
+                                                $viewUrl = asset($proofPath);
+                                            }
+                                        @endphp
+                                        <a href="{{ $viewUrl }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
                                             <i class="fas fa-file-image mr-1"></i> View current proof of payment
                                         </a>
+                                        <div class="mt-2 border border-gray-200 rounded-lg overflow-hidden" style="max-width: 300px;">
+                                            <img src="{{ $viewUrl }}" alt="Cash Payment Proof" class="w-full h-auto">
+                                        </div>
                                     </div>
                                 @endif
                                 <input type="file" id="cash_proof_of_payment" name="cash_proof_of_payment"
@@ -246,9 +260,22 @@
                                 @if($payment->gcash_proof_path)
                                     <div class="mb-2">
                                         <p class="text-sm text-gray-600">Current proof of payment:</p>
-                                        <a href="{{ asset($payment->gcash_proof_path) }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                        @php
+                                            $proofPath = $payment->gcash_proof_path;
+                                            // Check if it's a base64 file
+                                            if (strpos($proofPath, 'base64/') === 0 && file_exists(public_path($proofPath))) {
+                                                $base64Content = file_get_contents(public_path($proofPath));
+                                                $viewUrl = $base64Content;
+                                            } else {
+                                                $viewUrl = asset($proofPath);
+                                            }
+                                        @endphp
+                                        <a href="{{ $viewUrl }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
                                             <i class="fas fa-file-image mr-1"></i> View current proof of payment
                                         </a>
+                                        <div class="mt-2 border border-gray-200 rounded-lg overflow-hidden" style="max-width: 300px;">
+                                            <img src="{{ $viewUrl }}" alt="GCash Payment Proof" class="w-full h-auto">
+                                        </div>
                                     </div>
                                 @endif
                                 <input type="file" id="gcash_proof_of_payment" name="gcash_proof_of_payment"

@@ -33,7 +33,7 @@
                             </div>
                         </div>
                         <div class="mt-4">
-                            <a href="{{ route('dashboard') }}" class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800">
+                            <a href="{{ route('dashboard.index') }}" class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800">
                                 Go to Dashboard
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -108,7 +108,7 @@
                             </div>
                         </div>
                         <div class="mt-4">
-                            <a href="{{ route('announcements') }}" class="inline-flex items-center text-sm font-medium text-red-600 hover:text-red-800">
+                            <a href="{{ route('announcements.index') }}" class="inline-flex items-center text-sm font-medium text-red-600 hover:text-red-800">
                                 Read Announcements
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -147,4 +147,4 @@
             </div>
         </div>
     </div>
-</x-app-layout> 
+</x-app-layout>

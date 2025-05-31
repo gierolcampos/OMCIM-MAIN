@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Event extends Model
 {
     use HasFactory;
-    
+
     /**
      * The attributes that are mass assignable.
      *
@@ -27,9 +27,12 @@ class Event extends Model
         'location_details',
         'status',
         'notes',
+        'image_path',
         'created_by',
+        'school_calendar_id',
+        'evaluation_open',
     ];
-    
+
     /**
      * The attributes that should be cast.
      *
@@ -40,8 +43,9 @@ class Event extends Model
         'end_date_time' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'evaluation_open' => 'boolean',
     ];
-    
+
     /**
      * Get the user who created the event.
      */
@@ -49,7 +53,29 @@ class Event extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
-    
+
+    /**
+     * Get the school calendar that this event belongs to.
+     */
+    public function schoolCalendar(): BelongsTo
+    {
+        return $this->belongsTo(SchoolCalendar::class);
+    }
+
+    /**
+     * Scope a query to only include events from the current academic year.
+     */
+    public function scopeCurrentAcademicYear($query)
+    {
+        $currentCalendarId = SchoolCalendar::getCurrentCalendarId();
+
+        if ($currentCalendarId) {
+            return $query->where('school_calendar_id', $currentCalendarId);
+        }
+
+        return $query;
+    }
+
     /**
      * Determine if the event is upcoming.
      *
@@ -59,7 +85,7 @@ class Event extends Model
     {
         return $this->status === 'upcoming';
     }
-    
+
     /**
      * Determine if the event is completed.
      *
@@ -69,7 +95,7 @@ class Event extends Model
     {
         return $this->status === 'completed';
     }
-    
+
     /**
      * Determine if the event is cancelled.
      *
@@ -79,7 +105,26 @@ class Event extends Model
     {
         return $this->status === 'cancelled';
     }
-    
+
+    /**
+     * Determine if the event is pending (has passed but status not updated).
+     *
+     * @return bool
+     */
+    public function isPending(): bool
+    {
+        // An event is considered pending if it's still marked as upcoming
+        // but the end date has passed
+        if ($this->status !== 'upcoming') {
+            return false;
+        }
+
+        $now = now();
+        $endDate = $this->end_date_time;
+
+        return $endDate < $now;
+    }
+
     /**
      * Get the attendances for the event.
      */
@@ -87,7 +132,7 @@ class Event extends Model
     {
         return $this->hasMany(EventAttendance::class);
     }
-    
+
     /**
      * Get the attending users for the event.
      */
@@ -96,5 +141,31 @@ class Event extends Model
         return $this->belongsToMany(User::class, 'event_attendances')
             ->withPivot('status', 'comment')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the evaluations for the event.
+     */
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(EventEvaluation::class);
+    }
+
+    /**
+     * Get the evaluation questions for the event.
+     */
+    public function evaluationQuestions(): HasMany
+    {
+        return $this->hasMany(EvaluationQuestion::class)->orderBy('display_order');
+    }
+
+    /**
+     * Determine if the event evaluation is open.
+     *
+     * @return bool
+     */
+    public function isEvaluationOpen(): bool
+    {
+        return $this->evaluation_open === true;
     }
 }

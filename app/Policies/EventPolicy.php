@@ -29,7 +29,7 @@ class EventPolicy
      */
     public function create(User $user): bool
     {
-        return $user->is_admin; // Only admins can create events
+        return $user->canManageEvents(); // Users with event management permission can create events
     }
 
     /**
@@ -37,7 +37,7 @@ class EventPolicy
      */
     public function update(User $user, Event $event): bool
     {
-        return $user->is_admin; // Only admins can update events
+        return $user->canManageEvents(); // Users with event management permission can update events
     }
 
     /**
@@ -45,7 +45,7 @@ class EventPolicy
      */
     public function delete(User $user, Event $event): bool
     {
-        return $user->is_admin; // Only admins can delete events
+        return $user->canManageEvents(); // Users with event management permission can delete events
     }
 
     /**
@@ -53,7 +53,7 @@ class EventPolicy
      */
     public function restore(User $user, Event $event): bool
     {
-        return $user->is_admin; // Only admins can restore events
+        return $user->canManageEvents(); // Users with event management permission can restore events
     }
 
     /**
@@ -61,7 +61,7 @@ class EventPolicy
      */
     public function forceDelete(User $user, Event $event): bool
     {
-        return $user->is_admin; // Only admins can force delete events
+        return $user->canManageEvents(); // Users with event management permission can force delete events
     }
 
     /**
@@ -69,6 +69,6 @@ class EventPolicy
      */
     public function viewAttendees(User $user, Event $event): bool
     {
-        return $user->is_admin || $event->created_by === $user->id;
+        return $user->canManageEvents() || $event->created_by === $user->id;
     }
 }

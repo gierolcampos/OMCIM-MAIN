@@ -18,7 +18,7 @@ class PaymentTypeController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             // Admin view - fetch both cash and GCash payments
             $cashQuery = CashPayment::with('user');
             $gcashQuery = GcashPayment::with('user');
@@ -154,14 +154,14 @@ class PaymentTypeController extends Controller
         $admin = Auth::user();
 
         // Restrict payment creation to admin users only
-        if (!$admin->is_admin) {
+        if (!$admin->canManagePayments()) {
             return redirect()->route('payment.types.member.create')
                 ->with('error', 'You do not have permission to create payments as admin.');
         }
 
         // For admins, fetch all active members
         $users = User::where('status', 'active')
-                    ->where('is_admin', false)
+                    ->where('user_role', 'member')
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -177,7 +177,7 @@ class PaymentTypeController extends Controller
                     });
 
         // Fetch all admin users for officer selection
-        $officers = User::where('is_admin', true)
+        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -209,7 +209,7 @@ class PaymentTypeController extends Controller
     public function store(Request $request)
     {
         // Restrict payment creation to admin users only
-        if (!auth()->user()->is_admin) {
+        if (!auth()->user()->canManagePayments()) {
             return redirect()->route('payment.types.index')
                 ->with('error', 'You do not have permission to create payments as admin.');
         }
@@ -328,7 +328,7 @@ class PaymentTypeController extends Controller
 
         // Allow admins to view any payment
         // For regular members, only allow them to view their own payments
-        if (!$user->is_admin && $payment->user_id !== $user->id) {
+        if (!$user->canManagePayments() && $payment->user_id !== $user->id) {
             abort(403, 'Unauthorized.');
         }
 
@@ -345,7 +345,7 @@ class PaymentTypeController extends Controller
 
         // Allow admins to view any payment
         // For regular members, only allow them to view their own payments
-        if (!$user->is_admin && $payment->user_id !== $user->id) {
+        if (!$user->canManagePayments() && $payment->user_id !== $user->id) {
             abort(403, 'Unauthorized.');
         }
 
@@ -362,7 +362,7 @@ class PaymentTypeController extends Controller
             $user = Auth::user();
 
             // Only admins can approve payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -395,7 +395,7 @@ class PaymentTypeController extends Controller
             $user = Auth::user();
 
             // Only admins can reject payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -428,7 +428,7 @@ class PaymentTypeController extends Controller
             $user = Auth::user();
 
             // Only admins can approve payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -460,7 +460,7 @@ class PaymentTypeController extends Controller
             $user = Auth::user();
 
             // Only admins can reject payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -490,7 +490,7 @@ class PaymentTypeController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to access this page
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.cash-payments.create')
                 ->with('error', 'Please use the admin payment creation form.');
         }
@@ -514,7 +514,7 @@ class PaymentTypeController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to use this method
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.cash-payments.index')
                 ->with('error', 'Please use the admin payment creation form.');
         }

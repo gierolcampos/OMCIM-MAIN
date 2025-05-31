@@ -14,7 +14,7 @@
                 Back to Event
             </a>
         </div>
-        
+
         <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100">
                 <h3 class="text-lg font-medium text-gray-800">People Attending ({{ $attendees->where('status', 'attending')->count() }})</h3>
@@ -43,36 +43,9 @@
                 </div>
             </div>
         </div>
-        
-        <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mt-6">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h3 class="text-lg font-medium text-gray-800">Maybe Attending ({{ $attendees->where('status', 'maybe')->count() }})</h3>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    @forelse($attendees->where('status', 'maybe') as $attendance)
-                    <div class="flex items-center p-3 bg-yellow-50 rounded-md">
-                        <div class="flex-shrink-0 h-10 w-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm font-medium text-gray-900">{{ $attendance->user->firstname }} {{ $attendance->user->lastname }}</p>
-                            @if($attendance->comment)
-                            <p class="text-xs text-gray-500 mt-1">{{ $attendance->comment }}</p>
-                            @endif
-                        </div>
-                    </div>
-                    @empty
-                    <div class="col-span-2">
-                        <p class="text-gray-500">No one has responded with 'maybe' yet.</p>
-                    </div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-        
+
+
+
         <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mt-6">
             <div class="px-6 py-4 border-b border-gray-100">
                 <h3 class="text-lg font-medium text-gray-800">Not Attending ({{ $attendees->where('status', 'not_attending')->count() }})</h3>
@@ -103,4 +76,4 @@
         </div>
     </div>
 </div>
-@endsection 
+@endsection

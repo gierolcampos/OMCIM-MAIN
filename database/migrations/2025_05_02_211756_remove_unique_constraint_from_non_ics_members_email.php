@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('non_ics_members', function (Blueprint $table) {
-            $table->dropUnique('non_ics_members_email_unique');
-        });
+        try {
+            Schema::table('non_ics_members', function (Blueprint $table) {
+                $table->dropUnique('non_ics_members_email_unique');
+            });
+        } catch (\Exception $e) {
+            // If the index doesn't exist, just continue
+        }
     }
 
     /**

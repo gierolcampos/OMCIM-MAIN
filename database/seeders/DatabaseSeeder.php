@@ -13,11 +13,19 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Call the UsersTableSeeder to create admin user
+        $this->call(UsersTableSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Call the EventsTableSeeder
+        $this->call(EventsTableSeeder::class);
+
+        // Call the AnnouncementsTableSeeder
+        $this->call(AnnouncementsTableSeeder::class);
+
+        // Call the CompletedEventsSeeder
+        $this->call(CompletedEventsSeeder::class);
+
+        // Call the PaymentFeeSeeder
+        $this->call(PaymentFeeSeeder::class);
     }
 }

@@ -16,13 +16,23 @@
             text-align: center;
             border: 1px solid #e2e8f0;
             position: relative;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
         /* Different button colors based on role/status */
         .dropdown-button.admin {
             color: #000000;
+            background-color: #f8d7da;
+            border-color: #f5c2c7;
+        }
+
+        .dropdown-button.officer {
+            color: #000000;
+            background-color: #cff4fc;
+            border-color: #b6effb;
         }
 
         .dropdown-button.member {
@@ -82,8 +92,24 @@
         .dropdown-content a.active-option,
         .dropdown-content a.inactive-option,
         .dropdown-content a.admin-option,
+        .dropdown-content a.officer-option,
         .dropdown-content a.member-option {
             background-color: white;
+        }
+
+        .dropdown-content .dropdown-divider {
+            height: 1px;
+            background-color: #e2e8f0;
+            margin: 0.5rem 0;
+        }
+
+        .dropdown-content .dropdown-header {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            background-color: #f8fafc;
         }
 
         .dropdown-content a:hover {
@@ -248,6 +274,14 @@
 
         .admin-stat-icon-purple {
             background-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .admin-stat-card.cyan {
+            background-color: #ffffff;
+        }
+
+        .admin-stat-icon-cyan {
+            background-color: rgba(6, 182, 212, 0.2);
         }
 
         .admin-stat-card.green {
@@ -435,3 +469,51 @@
         .admin-action-button.delete:hover {
             color: #ef4444;
         }
+
+/* Status dot indicators */
+.status-dot {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    position: relative;
+    margin: 0 auto;
+}
+
+.status-dot.active {
+    background-color: #10b981; /* Green */
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot.active::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-dot.pending {
+    background-color: #f59e0b; /* Yellow */
+    opacity: 0.7;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.status-dot.pending::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-dot.rejected {
+    background-color: #ef4444; /* Red */
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}

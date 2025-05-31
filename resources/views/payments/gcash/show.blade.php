@@ -10,10 +10,10 @@
                         GCash Payment Details
                     </h2>
                     <div class="flex space-x-2">
-                        <a href="{{ Auth::user()->is_admin ? route('admin.payments.index') : route('client.payments.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 border border-transparent rounded-lg font-semibold text-xs text-gray-800 uppercase tracking-widest hover:bg-gray-300 transition shadow-sm">
+                        <a href="{{ Auth::user()->canManagePayments() ? route('admin.payments.index') : route('client.payments.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 border border-transparent rounded-lg font-semibold text-xs text-gray-800 uppercase tracking-widest hover:bg-gray-300 transition shadow-sm">
                             <i class="fas fa-arrow-left mr-2"></i> Back to Payments
                         </a>
-                        @if(Auth::user()->is_admin)
+                        @if(Auth::user()->canManagePayments())
                             <a href="{{ route('admin.gcash-payments.edit', $payment->id) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 transition shadow-sm">
                                 <i class="fas fa-edit mr-2"></i> Edit
                             </a>
@@ -78,8 +78,18 @@
                                     @if($payment->gcash_proof_path)
                                         <div>
                                             <p class="text-sm font-medium text-gray-500 mb-2">Proof of Payment</p>
-                                            <a href="{{ asset($payment->gcash_proof_path) }}" target="_blank" class="block">
-                                                <img src="{{ asset($payment->gcash_proof_path) }}" alt="Proof of Payment" class="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm" style="max-height: 300px;">
+                                            @php
+                                                $proofPath = $payment->gcash_proof_path;
+                                                // Check if it's a base64 file
+                                                if (strpos($proofPath, 'base64/') === 0 && file_exists(public_path($proofPath))) {
+                                                    $base64Content = file_get_contents(public_path($proofPath));
+                                                    $src = $base64Content;
+                                                } else {
+                                                    $src = asset($proofPath);
+                                                }
+                                            @endphp
+                                            <a href="{{ $src }}" target="_blank" class="block">
+                                                <img src="{{ $src }}" alt="Proof of Payment" class="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm" style="max-height: 300px;">
                                             </a>
                                         </div>
                                     @endif
@@ -89,7 +99,7 @@
                     </div>
                 </div>
 
-                @if(Auth::user()->is_admin && $payment->payment_status === 'Pending')
+                @if(Auth::user()->canManagePayments() && $payment->payment_status === 'Pending')
                     <div class="mt-6 flex space-x-4">
                         <form action="{{ route('admin.gcash-payments.approve', $payment->id) }}" method="POST" class="inline">
                             @csrf
@@ -97,12 +107,7 @@
                                 <i class="fas fa-check-circle mr-2"></i> Approve Payment
                             </button>
                         </form>
-                        <form action="{{ route('admin.gcash-payments.reject', $payment->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reject this payment?');">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 transition shadow-sm">
-                                <i class="fas fa-times-circle mr-2"></i> Reject Payment
-                            </button>
-                        </form>
+                        <!-- Reject button removed as requested -->
                     </div>
                 @endif
             </div>

@@ -179,7 +179,7 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                            {{ $payment->payment_status === 'Paid' ? 'bg-green-100 text-green-800' : 
+                                            {{ $payment->payment_status === 'Paid' ? 'bg-green-100 text-green-800' :
                                                ($payment->payment_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
                                             {{ $payment->payment_status }}
                                         </span>
@@ -196,12 +196,7 @@
                                                         <i class="fas fa-check-circle"></i>
                                                     </button>
                                                 </form>
-                                                <form action="{{ route('payment.types.cash.reject', $payment->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reject this payment?');">
-                                                    @csrf
-                                                    <button type="submit" class="text-red-600 hover:text-red-800" title="Reject Payment">
-                                                        <i class="fas fa-times-circle"></i>
-                                                    </button>
-                                                </form>
+                                                <!-- Reject button removed as requested -->
                                             @endif
                                         </div>
                                     </td>
@@ -257,7 +252,7 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                            {{ $payment->payment_status === 'Paid' ? 'bg-green-100 text-green-800' : 
+                                            {{ $payment->payment_status === 'Paid' ? 'bg-green-100 text-green-800' :
                                                ($payment->payment_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
                                             {{ $payment->payment_status }}
                                         </span>
@@ -274,12 +269,7 @@
                                                         <i class="fas fa-check-circle"></i>
                                                     </button>
                                                 </form>
-                                                <form action="{{ route('payment.types.gcash.reject', $payment->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reject this payment?');">
-                                                    @csrf
-                                                    <button type="submit" class="text-red-600 hover:text-red-800" title="Reject Payment">
-                                                        <i class="fas fa-times-circle"></i>
-                                                    </button>
-                                                </form>
+                                                <!-- Reject button removed as requested -->
                                             @endif
                                         </div>
                                     </td>

@@ -38,10 +38,15 @@
                         <h1 class="text-2xl font-bold text-gray-800">Record New Payment</h1>
                         <p class="text-gray-600 mt-1">Enter payment details for a member</p>
                     </div>
-                    <div>
-                        <a href="{{ Auth::user()->is_admin ? route('admin.payments.index') : route('client.payments.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-[#c21313] bg-white hover:bg-gray-50 transition">
+                    <div class="flex space-x-3">
+                        <a href="{{ Auth::user()->canManagePayments() ? route('admin.payments.index') : route('client.payments.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-[#c21313] bg-white hover:bg-gray-50 transition">
                             <i class="fas fa-arrow-left mr-2"></i> Back to Payments
                         </a>
+                        @if(Auth::user()->canManagePayments())
+                        <a href="{{ route('admin.payment-fees.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition">
+                            <i class="fas fa-cog mr-2"></i> Manage Fees
+                        </a>
+                        @endif
                     </div>
                 </div>
 
@@ -61,12 +66,12 @@
                 </div>
                 @endif
 
-                <form method="POST" action="{{ Auth::user()->is_admin ? route('admin.payments.store') : route('client.payments.store') }}" class="space-y-6" enctype="multipart/form-data" id="payment-form">
+                <form method="POST" action="{{ Auth::user()->canManagePayments() ? route('admin.payments.store') : route('client.payments.store') }}" class="space-y-6" enctype="multipart/form-data" id="payment-form">
                     @csrf
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Payer Selection -->
-                        @if(Auth::user()->is_admin)
+                        @if(Auth::user()->canManagePayments())
                         <div class="md:col-span-2">
                             <div class="mb-4">
                                 <label for="payer_type" class="block text-sm font-medium text-gray-700 mb-1">Payer Type <span class="text-red-500">*</span></label>
@@ -373,7 +378,7 @@
                                     </div>
                                     <div>
                                         <label for="non_ics_mobile" class="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                                        <input type="tel" id="non_ics_mobile" name="non_ics_mobile" value="{{ old('non_ics_mobile') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="09123456789" pattern="[0-9]{11}">
+                                        <input type="tel" id="non_ics_mobile" name="non_ics_mobile" value="{{ old('non_ics_mobile') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="09123456789" pattern="[0-9]{11}" maxlength="11">
                                         <p class="mt-1 text-xs text-gray-500">Enter 11-digit mobile number (optional)</p>
                                         @error('non_ics_mobile')
                                             <p class="mt-1 text-sm text-red-600">{{ $errors->first('non_ics_mobile') }}</p>
@@ -440,6 +445,20 @@
                             @enderror
                         </div>
 
+                        <!-- Purpose -->
+                        <div>
+                            <label for="purpose" class="block text-sm font-medium text-gray-700 mb-1">Purpose <span class="text-red-500">*</span></label>
+                            <select id="purpose" name="purpose" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                                <option value="">Select Purpose</option>
+                                @foreach($paymentFees as $fee)
+                                <option value="{{ $fee->purpose }}" {{ old('purpose') == $fee->purpose ? 'selected' : '' }} data-fee-id="{{ $fee->fee_id }}" data-price="{{ $fee->total_price }}">{{ $fee->purpose }}</option>
+                                @endforeach
+                            </select>
+                            @error('purpose')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Amount -->
                         <div>
                             <label for="total_price" class="block text-sm font-medium text-gray-700 mb-1">Amount (₱)</label>
@@ -447,27 +466,16 @@
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <span class="text-gray-500 sm:text-sm">₱</span>
                                 </div>
-                                <input type="number" step="0.01" min="0" id="total_price" name="total_price" value="{{ old('total_price') }}" class="block w-full pl-7 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="0.00" required>
+                                <input type="number" step="0.01" min="0" id="total_price" name="total_price" value="{{ old('total_price') }}" class="block w-full pl-7 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-gray-50" placeholder="0.00" required readonly>
+                                <p class="mt-1 text-xs text-gray-500">Amount is automatically set based on the selected purpose.</p>
                             </div>
                             @error('total_price')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
 
-                        <!-- Purpose -->
-                        <div>
-                            <label for="purpose" class="block text-sm font-medium text-gray-700 mb-1">Purpose <span class="text-red-500">*</span></label>
-                            <select id="purpose" name="purpose" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
-                                <option value="">Select Purpose</option>
-                                <option value="Membership Fee" {{ old('purpose') == 'Membership Fee' ? 'selected' : '' }}>Membership Fee</option>
-                                <option value="Event Fees" {{ old('purpose') == 'Event Fees' ? 'selected' : '' }}>Event Fees</option>
-                                <option value="ICS Merch" {{ old('purpose') == 'ICS Merch' ? 'selected' : '' }}>ICS Merch</option>
-                                <option value="Other" {{ old('purpose') == 'Other' ? 'selected' : '' }}>Other</option>
-                            </select>
-                            @error('purpose')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                        <!-- Hidden field for fee_id -->
+                        <input type="hidden" id="fee_id" name="fee_id" value="{{ old('fee_id') }}">
 
                         <!-- Payment Status -->
                         <div>
@@ -493,7 +501,7 @@
                             <select id="officer_in_charge" name="officer_in_charge" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
                                 <option value="">Select Officer</option>
                                 @foreach($officers as $officer)
-                                    <option value="{{ $officer->fullname }}" {{ old('officer_in_charge') == $officer->fullname || (Auth::user()->is_admin && Auth::user()->id == $officer->id) ? 'selected' : '' }}>
+                                    <option value="{{ $officer->fullname }}" {{ old('officer_in_charge') == $officer->fullname || (Auth::user()->canManagePayments() && Auth::user()->id == $officer->id) ? 'selected' : '' }}>
                                         {{ $officer->fullname }}
                                     </option>
                                 @endforeach
@@ -503,10 +511,10 @@
                             @enderror
                         </div>
 
-                        <!-- Description -->
+                        <!-- Note -->
                         <div class="md:col-span-2">
-                            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                            <textarea id="description" name="description" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter payment description (optional)">{{ old('description') }}</textarea>
+                            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                            <textarea id="description" name="description" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter payment note (optional)">{{ old('description') }}</textarea>
                             @error('description')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
@@ -524,11 +532,11 @@
                                     Officer in Charge <span class="text-red-500">*</span>
                                 </label>
                                 <input type="text" id="officer_in_charge" name="officer_in_charge"
-                                    value="{{ old('officer_in_charge', Auth::user()->is_admin ? $adminName : '') }}"
+                                    value="{{ old('officer_in_charge', Auth::user()->canManagePayments() ? $adminName : '') }}"
                                     class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                     placeholder="Enter officer's name"
-                                    {{ Auth::user()->is_admin ? 'readonly' : '' }}>
-                                @if(Auth::user()->is_admin)
+                                    {{ Auth::user()->canManagePayments() ? 'readonly' : '' }}>
+                                @if(Auth::user()->canManagePayments())
                                     <p class="mt-1 text-sm text-gray-500">This field is automatically filled with your name</p>
                                 @endif
                                 @error('officer_in_charge')
@@ -541,7 +549,13 @@
                                 <label for="receipt_control_number" class="block text-sm font-medium text-gray-700 mb-1">
                                     Receipt Control Number <span class="text-red-500">*</span>
                                 </label>
-                                <input type="number" id="receipt_control_number" name="receipt_control_number" value="{{ old('receipt_control_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="Enter receipt control number">
+                                <div class="flex">
+                                    <span class="inline-flex items-center px-3 py-2 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                        2-
+                                    </span>
+                                    <input type="text" id="receipt_control_number" name="receipt_control_number" value="{{ old('receipt_control_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-r-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="0001" pattern="[0-9]{4}" maxlength="4">
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">Enter 4-digit number (e.g., 0001)</p>
                                 @error('receipt_control_number')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -586,7 +600,7 @@
                                 <label for="gcash_num" class="block text-sm font-medium text-gray-700 mb-1">
                                     GCash Mobile Number <span class="text-red-500">*</span>
                                 </label>
-                                <input type="tel" id="gcash_num" name="gcash_num" value="{{ old('gcash_num') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="09123456789" pattern="[0-9]{11}">
+                                <input type="tel" id="gcash_num" name="gcash_num" value="{{ old('gcash_num') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="09123456789" pattern="[0-9]{11}" maxlength="11">
                                 <p class="mt-1 text-xs text-gray-500">Enter 11-digit mobile number</p>
                                 @error('gcash_num')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -598,7 +612,8 @@
                                 <label for="reference_number" class="block text-sm font-medium text-gray-700 mb-1">
                                     Reference Number <span class="text-red-500">*</span>
                                 </label>
-                                <input type="text" id="reference_number" name="reference_number" value="{{ old('reference_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="Enter GCash reference number">
+                                <input type="text" id="reference_number" name="reference_number" value="{{ old('reference_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="Enter GCash reference number" pattern="[0-9]{13}" maxlength="13">
+                                <p class="mt-1 text-xs text-gray-500">Enter 13-digit reference number</p>
                                 @error('reference_number')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -623,7 +638,7 @@
                     </div>
 
                     <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-                        <a href="{{ Auth::user()->is_admin ? route('admin.payments.index') : route('client.payments.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-[#c21313] bg-white hover:bg-gray-50 transition">
+                        <a href="{{ Auth::user()->canManagePayments() ? route('admin.payments.index') : route('client.payments.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-[#c21313] bg-white hover:bg-gray-50 transition">
                             <i class="fas fa-times mr-2"></i> Cancel
                         </a>
 
@@ -1282,6 +1297,14 @@
                     return;
                 }
 
+                // Validate receipt control number format (4 digits)
+                if (!/^\d{4}$/.test(receiptControlNumberInput.value)) {
+                    e.preventDefault();
+                    alert('Receipt Control Number must be exactly 4 digits (e.g., 0001)');
+                    receiptControlNumberInput.focus();
+                    return;
+                }
+
                 // Check cash proof of payment
                 const cashProofOfPayment = document.getElementById('cash_proof_of_payment');
                 if (!cashProofOfPayment || !cashProofOfPayment.files || cashProofOfPayment.files.length === 0) {
@@ -1458,5 +1481,66 @@
             console.log('Inline script: CASH fields should be visible');
         }
     }, 1000);
+</script>
+
+<!-- Payment Fee Lookup Script -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const purposeSelect = document.getElementById('purpose');
+        const totalPriceInput = document.getElementById('total_price');
+        const feeIdInput = document.getElementById('fee_id');
+
+        // Function to set payment fee from selected option
+        function setPaymentFeeFromOption(selectElement) {
+            if (!selectElement) return;
+
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
+            if (!selectedOption || !selectedOption.value) {
+                totalPriceInput.value = '';
+                feeIdInput.value = '';
+                totalPriceInput.readOnly = false;
+                return;
+            }
+
+            const feeId = selectedOption.getAttribute('data-fee-id');
+            const price = selectedOption.getAttribute('data-price');
+            const purpose = selectedOption.value;
+
+            if (feeId && price) {
+                totalPriceInput.value = price;
+                feeIdInput.value = feeId;
+
+                // If purpose is "Other", allow manual price entry and remove bg-gray-50 class
+                if (purpose === 'Other') {
+                    totalPriceInput.readOnly = false;
+                    totalPriceInput.classList.remove('bg-gray-50');
+                    totalPriceInput.value = ''; // Clear the value for manual entry
+                } else {
+                    totalPriceInput.readOnly = true;
+                    totalPriceInput.classList.add('bg-gray-50');
+                }
+            } else {
+                console.error('Selected option does not have fee data');
+                totalPriceInput.value = '';
+                feeIdInput.value = '';
+
+                // If no data, allow manual entry
+                totalPriceInput.readOnly = false;
+                totalPriceInput.classList.remove('bg-gray-50');
+            }
+        }
+
+        // If purpose is already selected (e.g., from old input), set the fee
+        if (purposeSelect && purposeSelect.value) {
+            setPaymentFeeFromOption(purposeSelect);
+        }
+
+        // Listen for changes to the purpose select
+        if (purposeSelect) {
+            purposeSelect.addEventListener('change', function() {
+                setPaymentFeeFromOption(this);
+            });
+        }
+    });
 </script>
 @endsection

@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('non_ics_members', function (Blueprint $table) {
-            $table->id();
-            $table->string('email')->unique();
-            $table->string('fullname');
-            $table->string('course_year_section');
-            $table->string('mobile_no')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
+        if (!Schema::hasTable('non_ics_members')) {
+            Schema::create('non_ics_members', function (Blueprint $table) {
+                $table->id();
+                $table->string('email')->unique();
+                $table->string('fullname');
+                $table->string('course_year_section');
+                $table->string('mobile_no')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
     }
 
     /**

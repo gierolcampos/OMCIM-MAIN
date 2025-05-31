@@ -13,8 +13,8 @@ class MembersExport implements FromCollection, WithHeadings
      */
     public function collection()
     {
-        return User::where('is_admin', 0)
-            ->select('id', 'studentnumber', 'firstname', 'lastname', 'middlename', 'suffix', 
+        return User::where('user_role', 'member')
+            ->select('id', 'studentnumber', 'firstname', 'lastname', 'middlename', 'suffix',
                     'course', 'major', 'year', 'section', 'mobile_no', 'email', 'created_at')
             ->get();
     }

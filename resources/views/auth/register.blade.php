@@ -15,6 +15,11 @@
             position: relative;
             z-index: 10;
         }
+        .required::after {
+            content: " *";
+            color: #c21313;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center py-24" style="background: url('{{ asset('img/bg.png') }}') no-repeat center center; background-size: cover;">
@@ -40,7 +45,7 @@
                 <input type="hidden" name="_token" value="{{ csrf_token() }}">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
-                        <label for="studentnumber" class="block text-sm font-semibold text-gray-700">Student Number</label>
+                        <label for="studentnumber" class="block text-sm font-semibold text-gray-700 required">Student Number</label>
                         <input id="studentnumber" name="studentnumber" type="text" pattern="[0-9]{1,6}"  tabindex="1" maxlength="6"
                             oninput="this.value = this.value.replace(/[^0-9]/g, ''); generateEmail();" placeholder="Eg: 123456"
                             class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400"
@@ -52,7 +57,7 @@
                 <!-- Row 2: First Name | Middle Name | Last Name -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                        <label for="firstname" class="block text-sm font-semibold text-gray-700">First Name</label>
+                        <label for="firstname" class="block text-sm font-semibold text-gray-700 required">First Name</label>
                         <input id="firstname" name="firstname" type="text" required autocomplete="firstname" tabindex="2" oninput="generateEmail()" placeholder="Enter First Name"
                             class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400"
                             value="{{ old('firstname') }}">
@@ -64,7 +69,7 @@
                             value="{{ old('middlename') }}">
                     </div>
                     <div>
-                        <label for="lastname" class="block text-sm font-semibold text-gray-700">Last Name</label>
+                        <label for="lastname" class="block text-sm font-semibold text-gray-700 required">Last Name</label>
                         <input id="lastname" name="lastname" type="text" required autocomplete="lastname" tabindex="4" oninput="generateEmail()" placeholder="Enter Last Name"
                             class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400"
                             value="{{ old('lastname') }}">
@@ -80,24 +85,25 @@
                             value="{{ old('suffix') }}">
                     </div>
                     <div>
-                        <label for="mobile_no" class="block text-sm font-semibold text-gray-700">Contact Number</label>
+                        <label for="mobile_no" class="block text-sm font-semibold text-gray-700 required">Contact Number</label>
                         <input id="mobile_no" name="mobile_no" type="text" maxlength="11" pattern="[0-9]{11}" required autocomplete="mobilenumber" tabindex="6" inputmode="numeric" placeholder="Eg: 09123456789"
                             oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                             class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400"
                             value="{{ old('mobile_no') }}">
                     </div>
                     <div>
-                        <label for="email" class="block text-sm font-semibold text-gray-700">NPC Email</label>
+                        <label for="email" class="block text-sm font-semibold text-gray-700 required">NPC Email</label>
                         <input id="email" name="email" type="email" required autocomplete="username" tabindex="7"
                             class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 placeholder-gray-400"
-                            value="{{ old('email') }}">
+                            value="{{ old('email') }}" placeholder="example@navotaspolytechniccollege.edu.ph">
+                        <p class="mt-1 text-xs text-gray-500">Only @navotaspolytechniccollege.edu.ph email addresses are allowed</p>
                     </div>
                 </div>
 
                 <!-- Row 4: Course | Year | Section -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
                     <div>
-                        <label for="course" class="block text-sm font-semibold text-gray-700">Course</label>
+                        <label for="course" class="block text-sm font-semibold text-gray-700 required">Course</label>
                         <select id="course" name="course" required tabindex="8"
                             class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400">
                             <option value="" disabled selected>Select your course</option>
@@ -106,7 +112,7 @@
                         </select>
                     </div>
                     <div>
-                        <label for="year" class="block text-sm font-semibold text-gray-700">Year</label>
+                        <label for="year" class="block text-sm font-semibold text-gray-700 required">Year</label>
                         <select id="year" name="year" required tabindex="9"
                             class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400">
                             <option value="" disabled selected>Select your year</option>
@@ -117,7 +123,7 @@
                         </select>
                     </div>
                     <div>
-                        <label for="section" class="block text-sm font-semibold text-gray-700">Section</label>
+                        <label for="section" class="block text-sm font-semibold text-gray-700 required">Section</label>
                         <select id="section" name="section" required tabindex="10"
                             class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400">
                             <option value="" disabled selected>Select your section</option>
@@ -132,7 +138,7 @@
                 <!-- Row 5: Password | Confirm Password -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <div>
-                        <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
+                        <label for="password" class="block text-sm font-semibold text-gray-700 required">Password</label>
                         <div class="relative">
                             <input id="password" name="password" type="password" required autocomplete="new-password" tabindex="11"
                                 class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400">
@@ -146,7 +152,7 @@
                     </div>
 
                     <div>
-                        <label for="password_confirmation" class="block text-sm font-semibold text-gray-700">Confirm Password</label>
+                        <label for="password_confirmation" class="block text-sm font-semibold text-gray-700 required">Confirm Password</label>
                         <div class="relative">
                             <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" tabindex="12"
                                 class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-red-400 focus:border-red-500 transition px-4 py-2 bg-white placeholder-gray-400">
@@ -192,7 +198,9 @@
                         .filter(word => word.length > 0)
                         .map(word => word[0].toLowerCase())
                         .join('');
-                    const email = firstLetters + lastname + studentnumber + '@navotaspolytechniccollege.edu.ph';
+                    // Ensure the domain is always correct
+                    const domain = 'navotaspolytechniccollege.edu.ph';
+                    const email = firstLetters + lastname + studentnumber + '@' + domain;
                     document.getElementById('email').value = email;
                 }
             }

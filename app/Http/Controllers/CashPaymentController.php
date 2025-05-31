@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\CashPayment;
 use App\Models\User;
+use App\Traits\HasBase64Images;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class CashPaymentController extends Controller
 {
+    use HasBase64Images;
     /**
      * Display a listing of the cash payments.
      */
@@ -17,7 +20,7 @@ class CashPaymentController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->is_admin) {
+        if (!$user->canManagePayments()) {
             abort(403, 'Unauthorized.');
         }
 
@@ -110,14 +113,14 @@ class CashPaymentController extends Controller
         $admin = Auth::user();
 
         // Restrict payment creation to admin users only
-        if (!$admin->is_admin) {
+        if (!$admin->canManagePayments()) {
             return redirect()->route('client.cash-payments.index')
                 ->with('error', 'You do not have permission to create payments as admin.');
         }
 
         // For admins, fetch all active members
         $users = User::where('status', 'active')
-                    ->where('is_admin', false)
+                    ->where('user_role', 'member')
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -133,7 +136,7 @@ class CashPaymentController extends Controller
                     });
 
         // Fetch all admin users for officer selection
-        $officers = User::where('is_admin', true)
+        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -156,7 +159,12 @@ class CashPaymentController extends Controller
             $admin->suffix
         ])));
 
-        return view('payments.cash.create', compact('users', 'officers', 'adminName'));
+        // Fetch active payment fees
+        $paymentFees = \App\Models\PaymentFee::where('is_active', true)
+                        ->orderBy('purpose')
+                        ->get();
+
+        return view('payments.cash.create', compact('users', 'officers', 'adminName', 'paymentFees'));
     }
 
     /**
@@ -165,7 +173,7 @@ class CashPaymentController extends Controller
     public function store(Request $request)
     {
         // Restrict payment creation to admin users only
-        if (!auth()->user()->is_admin) {
+        if (!auth()->user()->canManagePayments()) {
             return redirect()->route('client.cash-payments.index')
                 ->with('error', 'You do not have permission to create payments as admin.');
         }
@@ -178,13 +186,13 @@ class CashPaymentController extends Controller
                 'purpose' => 'required|string',
                 'description' => 'nullable|string',
                 'officer_in_charge' => 'required|string',
-                'receipt_control_number' => 'required|integer',
+                'receipt_control_number' => 'required|string|regex:/^\d{4}$/',
                 'cash_proof_of_payment' => 'required|file|mimes:jpg,jpeg|max:2048',
             ], [
                 'user_id.required' => 'Please select a member.',
                 'officer_in_charge.required' => 'The officer in charge field is required.',
                 'receipt_control_number.required' => 'The receipt control number field is required.',
-                'receipt_control_number.integer' => 'The receipt control number must be an integer.',
+                'receipt_control_number.regex' => 'The receipt control number must be exactly 4 digits (e.g., 0001).',
                 'purpose.required' => 'The purpose field is required.',
                 'cash_proof_of_payment.required' => 'The proof of payment is required.',
                 'cash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
@@ -193,12 +201,22 @@ class CashPaymentController extends Controller
             // Get the user
             $user = User::findOrFail($validated['user_id']);
 
-            // Handle file upload
+            // Handle file upload and convert to base64
             $cashProofPath = null;
             if ($request->hasFile('cash_proof_of_payment')) {
                 $cashProofFile = $request->file('cash_proof_of_payment');
-                $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
-                $cashProofFile->move(public_path('proofs'), $cashProofPath);
+
+                // Convert image to base64 and store in a file
+                $cashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                if (!$cashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
+                    $cashProofFile->move(public_path('proofs'), $cashProofPath);
+                    Log::info('Cash proof stored as file: ' . $cashProofPath);
+                } else {
+                    Log::info('Cash proof converted to base64 and stored in file: ' . $cashProofPath);
+                }
             }
 
             // Create the payment record
@@ -210,7 +228,7 @@ class CashPaymentController extends Controller
                 'placed_on' => now(),
                 'payment_status' => $validated['payment_status'],
                 'officer_in_charge' => $validated['officer_in_charge'],
-                'receipt_control_number' => $validated['receipt_control_number'],
+                'receipt_control_number' => '2-' . $validated['receipt_control_number'],
                 'cash_proof_path' => $cashProofPath,
                 'description' => $validated['description'] ?? null,
             ]);
@@ -241,7 +259,7 @@ class CashPaymentController extends Controller
 
         // Allow admins to view any payment
         // For regular members, only allow them to view their own payments
-        if (!$user->is_admin && $payment->user_id !== $user->id) {
+        if (!$user->canManagePayments() && $payment->user_id !== $user->id) {
             abort(403, 'Unauthorized.');
         }
 
@@ -257,13 +275,13 @@ class CashPaymentController extends Controller
         $user = Auth::user();
 
         // Only admins can edit any payment
-        if (!$user->is_admin) {
+        if (!$user->canManagePayments()) {
             abort(403, 'Unauthorized.');
         }
 
         // Fetch all active members
         $users = User::where('status', 'active')
-                    ->where('is_admin', false)
+                    ->where('user_role', 'member')
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -279,7 +297,7 @@ class CashPaymentController extends Controller
                     });
 
         // Fetch all admin users for officer selection
-        $officers = User::where('is_admin', true)
+        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -294,6 +312,7 @@ class CashPaymentController extends Controller
                         return $user;
                     });
 
+        // Use the correct view path
         return view('payments.cash.edit', compact('payment', 'users', 'officers'));
     }
 
@@ -307,53 +326,73 @@ class CashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can update any payment
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
             $validated = $request->validate([
-                'user_id' => 'required|exists:users,id',
                 'total_price' => 'required|numeric|min:0',
                 'payment_status' => 'required|string|in:Paid,Pending,Rejected,Refunded',
                 'purpose' => 'required|string',
                 'description' => 'nullable|string',
                 'officer_in_charge' => 'required|string',
-                'receipt_control_number' => 'required|numeric',
+                'receipt_control_number' => 'required|string|regex:/^\d{4}$/',
                 'cash_proof_of_payment' => 'nullable|file|mimes:jpg,jpeg|max:2048',
             ], [
-                'user_id.required' => 'Please select a member.',
                 'officer_in_charge.required' => 'The officer in charge field is required.',
                 'receipt_control_number.required' => 'The receipt control number field is required.',
-                'receipt_control_number.numeric' => 'The receipt control number must be a number.',
+                'receipt_control_number.regex' => 'The receipt control number must be exactly 4 digits (e.g., 0001).',
                 'purpose.required' => 'The purpose field is required.',
                 'cash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
             ]);
 
-            // Get the user
-            $memberUser = User::findOrFail($validated['user_id']);
+            // Get the existing user (don't change the user)
+            $memberUser = User::findOrFail($payment->user_id);
 
-            // Handle file upload
+            // Handle file upload and convert to base64
             $cashProofPath = $payment->cash_proof_path;
             if ($request->hasFile('cash_proof_of_payment')) {
                 $cashProofFile = $request->file('cash_proof_of_payment');
-                $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
-                $cashProofFile->move(public_path('proofs'), $cashProofPath);
 
-                // Delete old file if it exists
-                if ($payment->cash_proof_path && file_exists(public_path($payment->cash_proof_path))) {
-                    unlink(public_path($payment->cash_proof_path));
+                // Delete old file if exists
+                if ($payment->cash_proof_path) {
+                    if ($this->isBase64File($payment->cash_proof_path)) {
+                        // It's a base64 file, delete it
+                        $oldProofPath = public_path($payment->cash_proof_path);
+                        if (file_exists($oldProofPath)) {
+                            unlink($oldProofPath);
+                        }
+                    } else if (!$this->isBase64Image($payment->cash_proof_path) && file_exists(public_path($payment->cash_proof_path))) {
+                        // It's a regular file, delete it
+                        unlink(public_path($payment->cash_proof_path));
+                    }
                 }
+
+                // Convert image to base64 and store in a file
+                $newCashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                if (!$newCashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $newCashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
+                    $cashProofFile->move(public_path('proofs'), $newCashProofPath);
+                    Log::info('Cash proof updated and stored as file: ' . $newCashProofPath);
+                } else {
+                    Log::info('Cash proof updated and converted to base64 and stored in file: ' . $newCashProofPath);
+                }
+
+                $cashProofPath = $newCashProofPath;
             }
 
-            // Update the payment record
+            // Get the existing user (don't change the user)
+            $memberUser = User::findOrFail($payment->user_id);
+
+            // Update the payment record (keeping the same user)
             $payment->update([
-                'user_id' => $memberUser->id,
-                'email' => $memberUser->email,
                 'total_price' => $validated['total_price'],
                 'purpose' => $validated['purpose'],
                 'payment_status' => $validated['payment_status'],
                 'officer_in_charge' => $validated['officer_in_charge'],
-                'receipt_control_number' => $validated['receipt_control_number'],
+                'receipt_control_number' => '2-' . $validated['receipt_control_number'],
                 'cash_proof_path' => $cashProofPath,
                 'description' => $validated['description'] ?? null,
             ]);
@@ -378,7 +417,7 @@ class CashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can delete payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -403,7 +442,7 @@ class CashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can approve payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -436,7 +475,7 @@ class CashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can reject payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -467,7 +506,7 @@ class CashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to access this page
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.cash-payments.create')
                 ->with('error', 'Please use the admin payment creation form.');
         }
@@ -480,7 +519,12 @@ class CashPaymentController extends Controller
             $user->suffix
         ])));
 
-        return view('payments.cash.member-create', compact('user', 'memberName'));
+        // Fetch active payment fees
+        $paymentFees = \App\Models\PaymentFee::where('is_active', true)
+                        ->orderBy('purpose')
+                        ->get();
+
+        return view('payments.cash.member-create', compact('user', 'memberName', 'paymentFees'));
     }
 
     /**
@@ -491,7 +535,7 @@ class CashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to use this method
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.cash-payments.index')
                 ->with('error', 'Please use the admin payment creation form.');
         }
@@ -502,23 +546,33 @@ class CashPaymentController extends Controller
                 'purpose' => 'required|string',
                 'description' => 'nullable|string',
                 'officer_in_charge' => 'required|string',
-                'receipt_control_number' => 'required|numeric',
+                'receipt_control_number' => 'required|string|regex:/^\d{4}$/',
                 'cash_proof_of_payment' => 'required|file|mimes:jpg,jpeg|max:2048',
             ], [
                 'officer_in_charge.required' => 'The officer in charge field is required.',
                 'receipt_control_number.required' => 'The receipt control number field is required.',
-                'receipt_control_number.numeric' => 'The receipt control number must be a number.',
+                'receipt_control_number.regex' => 'The receipt control number must be exactly 4 digits (e.g., 0001).',
                 'purpose.required' => 'The purpose field is required.',
                 'cash_proof_of_payment.required' => 'The proof of payment is required.',
                 'cash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
             ]);
 
-            // Handle file upload
+            // Handle file upload and convert to base64
             $cashProofPath = null;
             if ($request->hasFile('cash_proof_of_payment')) {
                 $cashProofFile = $request->file('cash_proof_of_payment');
-                $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
-                $cashProofFile->move(public_path('proofs'), $cashProofPath);
+
+                // Convert image to base64 and store in a file
+                $cashProofPath = $this->convertToBase64($cashProofFile, 'base64/payments/cash');
+
+                if (!$cashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $cashProofPath = 'proofs/cash_' . time() . '_' . $cashProofFile->getClientOriginalName();
+                    $cashProofFile->move(public_path('proofs'), $cashProofPath);
+                    Log::info('Member cash proof stored as file: ' . $cashProofPath);
+                } else {
+                    Log::info('Member cash proof converted to base64 and stored in file: ' . $cashProofPath);
+                }
             }
 
             // Create the payment record
@@ -530,7 +584,7 @@ class CashPaymentController extends Controller
                 'placed_on' => now(),
                 'payment_status' => 'Pending', // Members can only submit pending payments
                 'officer_in_charge' => $validated['officer_in_charge'],
-                'receipt_control_number' => $validated['receipt_control_number'],
+                'receipt_control_number' => '2-' . $validated['receipt_control_number'],
                 'cash_proof_path' => $cashProofPath,
                 'description' => $validated['description'] ?? null,
             ]);
@@ -555,7 +609,7 @@ class CashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to access this page
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.cash-payments.edit', $id)
                 ->with('error', 'Please use the admin payment edit form.');
         }
@@ -566,7 +620,7 @@ class CashPaymentController extends Controller
             ->first();
 
         if (!$payment) {
-            return redirect()->route('client.cash-payments.index')
+            return redirect()->route('client.payments.index')
                 ->with('error', 'Payment not found or you do not have permission to edit it.');
         }
 
@@ -595,7 +649,7 @@ class CashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to use this method
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.cash-payments.index')
                 ->with('error', 'Please use the admin payment edit form.');
         }
@@ -622,12 +676,12 @@ class CashPaymentController extends Controller
                 'purpose' => 'required|string',
                 'description' => 'nullable|string',
                 'officer_in_charge' => 'required|string',
-                'receipt_control_number' => 'required|numeric',
+                'receipt_control_number' => 'required|string|regex:/^\d{4}$/',
                 'cash_proof_of_payment' => 'nullable|file|mimes:jpg,jpeg|max:2048',
             ], [
                 'officer_in_charge.required' => 'The officer in charge field is required.',
                 'receipt_control_number.required' => 'The receipt control number field is required.',
-                'receipt_control_number.numeric' => 'The receipt control number must be a number.',
+                'receipt_control_number.regex' => 'The receipt control number must be exactly 4 digits (e.g., 0001).',
                 'purpose.required' => 'The purpose field is required.',
                 'cash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
             ]);
@@ -650,12 +704,12 @@ class CashPaymentController extends Controller
                 'total_price' => $validated['total_price'],
                 'purpose' => $validated['purpose'],
                 'officer_in_charge' => $validated['officer_in_charge'],
-                'receipt_control_number' => $validated['receipt_control_number'],
+                'receipt_control_number' => '2-' . $validated['receipt_control_number'],
                 'cash_proof_path' => $cashProofPath,
                 'description' => $validated['description'] ?? null,
             ]);
 
-            return redirect()->route('client.cash-payments.index')
+            return redirect()->route('client.payments.index')
                 ->with('success', 'Payment updated successfully. It is still pending approval from an administrator.');
         } catch (\Exception $e) {
             Log::error('Member cash payment update failed: ' . $e->getMessage());

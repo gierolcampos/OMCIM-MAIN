@@ -33,6 +33,7 @@ class NonIcsMember extends Model
         'gcash_num',
         'reference_number',
         'gcash_proof_path',
+        'school_calendar_id',
     ];
 
     /**
@@ -68,5 +69,27 @@ class NonIcsMember extends Model
     public function orders()
     {
         return $this->hasMany(Order::class, 'non_ics_member_id', 'id');
+    }
+
+    /**
+     * Get the school calendar that this non-ICS member belongs to.
+     */
+    public function schoolCalendar()
+    {
+        return $this->belongsTo(SchoolCalendar::class);
+    }
+
+    /**
+     * Scope a query to only include non-ICS members from the current academic year.
+     */
+    public function scopeCurrentAcademicYear($query)
+    {
+        $currentCalendarId = SchoolCalendar::getCurrentCalendarId();
+
+        if ($currentCalendarId) {
+            return $query->where('school_calendar_id', $currentCalendarId);
+        }
+
+        return $query;
     }
 }

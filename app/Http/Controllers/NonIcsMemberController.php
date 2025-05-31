@@ -109,7 +109,7 @@ class NonIcsMemberController extends Controller
     {
         $nonIcsMember = NonIcsMember::findOrFail($id);
         $payments = Order::where('non_ics_member_id', $id)->orderBy('created_at', 'desc')->get();
-        
+
         return view('non-ics-members.show', compact('nonIcsMember', 'payments'));
     }
 
@@ -129,7 +129,7 @@ class NonIcsMemberController extends Controller
     {
         try {
             $nonIcsMember = NonIcsMember::findOrFail($id);
-            
+
             $validated = $request->validate([
                 'email' => 'required|email',
                 'alternative_email' => 'nullable|email',
@@ -144,7 +144,7 @@ class NonIcsMemberController extends Controller
                 'membership_type' => 'nullable|string|max:50',
                 'membership_expiry' => 'nullable|date',
             ]);
-            
+
             // Check if email is being changed and if it already exists
             if ($validated['email'] !== $nonIcsMember->email) {
                 $existingMember = NonIcsMember::where('email', $validated['email'])->first();
@@ -154,10 +154,10 @@ class NonIcsMemberController extends Controller
                         ->withInput();
                 }
             }
-            
+
             $nonIcsMember->update($validated);
-            
-            return redirect()->route('admin.non-ics-members.show', $nonIcsMember->id)
+
+            return redirect()->route('admin.payments.index')
                 ->with('success', 'Non-ICS member updated successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to update Non-ICS member: ' . $e->getMessage());
@@ -174,16 +174,16 @@ class NonIcsMemberController extends Controller
     {
         try {
             $nonIcsMember = NonIcsMember::findOrFail($id);
-            
+
             // Check if there are any payments associated with this non-ICS member
             $paymentsCount = Order::where('non_ics_member_id', $id)->count();
             if ($paymentsCount > 0) {
                 return redirect()->back()
                     ->with('error', 'Cannot delete this non-ICS member because there are payments associated with them.');
             }
-            
+
             $nonIcsMember->delete();
-            
+
             return redirect()->route('admin.non-ics-members.index')
                 ->with('success', 'Non-ICS member deleted successfully.');
         } catch (\Exception $e) {

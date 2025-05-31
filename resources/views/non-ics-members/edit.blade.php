@@ -11,8 +11,8 @@
                         <p class="text-gray-600 mt-1">Update member information</p>
                     </div>
                     <div class="mt-4 md:mt-0">
-                        <a href="{{ route('admin.non-ics-members.show', $nonIcsMember->id) }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition">
-                            <i class="fas fa-arrow-left mr-2"></i> Back to Details
+                        <a href="{{ route('admin.payments.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition">
+                            <i class="fas fa-arrow-left mr-2"></i> Back to Payments
                         </a>
                     </div>
                 </div>
@@ -33,13 +33,13 @@
                 <form method="POST" action="{{ route('admin.non-ics-members.update', $nonIcsMember->id) }}" class="space-y-6">
                     @csrf
                     @method('PUT')
-                    
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Basic Information -->
                         <div class="md:col-span-2">
                             <h2 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h2>
                         </div>
-                        
+
                         <!-- Email -->
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
@@ -48,7 +48,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Alternative Email -->
                         <div>
                             <label for="alternative_email" class="block text-sm font-medium text-gray-700 mb-1">Alternative Email</label>
@@ -57,7 +57,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Full Name -->
                         <div>
                             <label for="fullname" class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-red-500">*</span></label>
@@ -66,7 +66,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Student ID -->
                         <div>
                             <label for="student_id" class="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
@@ -75,7 +75,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Course, Year & Section -->
                         <div>
                             <label for="course_year_section" class="block text-sm font-medium text-gray-700 mb-1">Course, Year & Section <span class="text-red-500">*</span></label>
@@ -84,7 +84,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Department -->
                         <div>
                             <label for="department" class="block text-sm font-medium text-gray-700 mb-1">Department/College</label>
@@ -93,7 +93,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Mobile Number -->
                         <div>
                             <label for="mobile_no" class="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
@@ -103,7 +103,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Address -->
                         <div class="md:col-span-2">
                             <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
@@ -112,12 +112,12 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Membership Information -->
                         <div class="md:col-span-2 pt-4">
                             <h2 class="text-lg font-medium text-gray-900 mb-4">Membership Information</h2>
                         </div>
-                        
+
                         <!-- Membership Type -->
                         <div>
                             <label for="membership_type" class="block text-sm font-medium text-gray-700 mb-1">Membership Type</label>
@@ -131,7 +131,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Membership Expiry -->
                         <div>
                             <label for="membership_expiry" class="block text-sm font-medium text-gray-700 mb-1">Membership Expiry Date</label>
@@ -140,7 +140,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Payment Status -->
                         <div>
                             <label for="payment_status" class="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
@@ -153,7 +153,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        
+
                         <!-- Notes -->
                         <div class="md:col-span-2">
                             <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
@@ -165,10 +165,10 @@
                     </div>
 
                     <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-                        <a href="{{ route('admin.non-ics-members.show', $nonIcsMember->id) }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition">
+                        <a href="{{ route('admin.payments.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition">
                             <i class="fas fa-times mr-2"></i> Cancel
                         </a>
-                        <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105">
+                        <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-white bg-[#c21313] hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition transform hover:scale-105">
                             <i class="fas fa-save mr-2"></i> Update Member
                         </button>
                     </div>

@@ -17,6 +17,7 @@ class GcashPayment extends Model
      */
     protected $fillable = [
         'user_id',
+        'school_calendar_id',
         'email',
         'total_price',
         'purpose',
@@ -48,6 +49,28 @@ class GcashPayment extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the school calendar that this payment belongs to.
+     */
+    public function schoolCalendar()
+    {
+        return $this->belongsTo(SchoolCalendar::class);
+    }
+
+    /**
+     * Scope a query to only include payments from the current academic year.
+     */
+    public function scopeCurrentAcademicYear($query)
+    {
+        $currentCalendarId = SchoolCalendar::getCurrentCalendarId();
+
+        if ($currentCalendarId) {
+            return $query->where('school_calendar_id', $currentCalendarId);
+        }
+
+        return $query;
     }
 
     /**

@@ -11,7 +11,7 @@
                         <p class="text-gray-600 mt-1">View payment transaction information</p>
                     </div>
                     <div class="mt-4 md:mt-0">
-                        @if(Auth::user()->is_admin)
+                        @if(Auth::user()->canManagePayments())
                         <a href="{{ route('admin.payments.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-[#c21313] bg-white hover:bg-gray-50 transition">
                             <i class="fas fa-arrow-left mr-2"></i> Back to Payments
                         </a>
@@ -94,7 +94,7 @@
                             </div>
                             @if($payment->description)
                             <div class="md:col-span-2">
-                                <p class="text-sm font-medium text-gray-500">Description</p>
+                                <p class="text-sm font-medium text-gray-500">Note</p>
                                 <p class="mt-1 text-sm text-gray-900">{{ $payment->description }}</p>
                             </div>
                             @endif
@@ -128,12 +128,28 @@
                             <div class="md:col-span-2 mt-4">
                                 <p class="text-sm font-medium text-gray-500 mb-2">Proof of Payment</p>
                                 <div class="border border-gray-200 rounded-lg overflow-hidden">
-                                    <img src="{{ asset($payment->gcash_proof_path) }}" alt="GCash Payment Proof" class="w-full max-w-md h-auto">
+                                    @php
+                                        $proofPath = $payment->gcash_proof_path;
+                                        // Check if it's a base64 file
+                                        if (strpos($proofPath, 'base64/') === 0 && file_exists(public_path($proofPath))) {
+                                            $base64Content = file_get_contents(public_path($proofPath));
+                                            $src = $base64Content;
+                                        } else {
+                                            $src = asset($proofPath);
+                                        }
+                                    @endphp
+                                    <img src="{{ $src }}" alt="GCash Payment Proof" class="w-full max-w-md h-auto">
                                 </div>
                                 <div class="mt-2">
-                                    <a href="{{ asset($payment->gcash_proof_path) }}" target="_blank" class="text-sm text-[#c21313] hover:text-red-800">
-                                        <i class="fas fa-external-link-alt mr-1"></i> View Full Image
-                                    </a>
+                                    @if(strpos($payment->gcash_proof_path, 'base64/') === 0 && file_exists(public_path($payment->gcash_proof_path)))
+                                        <a href="{{ $src }}" target="_blank" class="text-sm text-[#c21313] hover:text-red-800">
+                                            <i class="fas fa-external-link-alt mr-1"></i> View Full Image
+                                        </a>
+                                    @else
+                                        <a href="{{ asset($payment->gcash_proof_path) }}" target="_blank" class="text-sm text-[#c21313] hover:text-red-800">
+                                            <i class="fas fa-external-link-alt mr-1"></i> View Full Image
+                                        </a>
+                                    @endif
                                 </div>
                             </div>
                             @endif
@@ -158,12 +174,28 @@
                             <div class="md:col-span-2 mt-4">
                                 <p class="text-sm font-medium text-gray-500 mb-2">Proof of Payment</p>
                                 <div class="border border-gray-200 rounded-lg overflow-hidden">
-                                    <img src="{{ asset($payment->cash_proof_path) }}" alt="Cash Payment Proof" class="w-full max-w-md h-auto">
+                                    @php
+                                        $proofPath = $payment->cash_proof_path;
+                                        // Check if it's a base64 file
+                                        if (strpos($proofPath, 'base64/') === 0 && file_exists(public_path($proofPath))) {
+                                            $base64Content = file_get_contents(public_path($proofPath));
+                                            $src = $base64Content;
+                                        } else {
+                                            $src = asset($proofPath);
+                                        }
+                                    @endphp
+                                    <img src="{{ $src }}" alt="Cash Payment Proof" class="w-full max-w-md h-auto">
                                 </div>
                                 <div class="mt-2">
-                                    <a href="{{ asset($payment->cash_proof_path) }}" target="_blank" class="text-sm text-[#c21313] hover:text-red-800">
-                                        <i class="fas fa-external-link-alt mr-1"></i> View Full Image
-                                    </a>
+                                    @if(strpos($payment->cash_proof_path, 'base64/') === 0 && file_exists(public_path($payment->cash_proof_path)))
+                                        <a href="{{ $src }}" target="_blank" class="text-sm text-[#c21313] hover:text-red-800">
+                                            <i class="fas fa-external-link-alt mr-1"></i> View Full Image
+                                        </a>
+                                    @else
+                                        <a href="{{ asset($payment->cash_proof_path) }}" target="_blank" class="text-sm text-[#c21313] hover:text-red-800">
+                                            <i class="fas fa-external-link-alt mr-1"></i> View Full Image
+                                        </a>
+                                    @endif
                                 </div>
                             </div>
                             @endif
@@ -174,39 +206,33 @@
 
                 <!-- Actions -->
                 <div class="mt-6 flex justify-end space-x-3">
-                    @if(Auth::user()->is_admin)
+                    @if(Auth::user()->canManagePayments())
                         @if($payment->payment_status === 'Pending')
                             @php
                                 $paymentClass = get_class($payment);
                                 $approveRoute = '';
-                                $rejectRoute = '';
+
+                                // Debug information
+                                echo "<!-- Payment Class: " . $paymentClass . " -->";
+                                echo "<!-- Payment ID: " . $payment->id . " -->";
 
                                 if ($paymentClass === 'App\Models\Order') {
                                     $approveRoute = route('admin.payments.approve', $payment->id);
-                                    $rejectRoute = route('admin.payments.reject', $payment->id);
                                 } elseif ($paymentClass === 'App\Models\CashPayment') {
                                     $approveRoute = route('payment.types.cash.approve', $payment->id);
-                                    $rejectRoute = route('payment.types.cash.reject', $payment->id);
                                 } elseif ($paymentClass === 'App\Models\GcashPayment') {
                                     $approveRoute = route('payment.types.gcash.approve', $payment->id);
-                                    $rejectRoute = route('payment.types.gcash.reject', $payment->id);
                                 } elseif ($paymentClass === 'App\Models\NonIcsMember') {
                                     $approveRoute = route('admin.payments.approve-non-ics', $payment->id);
-                                    $rejectRoute = route('admin.payments.reject-non-ics', $payment->id);
+                                    echo "<!-- NonIcsMember approve route set: " . $approveRoute . " -->";
                                 }
                             @endphp
 
-                            @if($approveRoute && $rejectRoute)
+                            @if($approveRoute)
                             <form action="{{ $approveRoute }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-white bg-green-600 hover:bg-green-700 transition">
                                     <i class="fas fa-check-circle mr-2"></i> Approve
-                                </button>
-                            </form>
-                            <form action="{{ $rejectRoute }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reject this payment?');">
-                                @csrf
-                                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-white bg-[#c21313] hover:bg-red-800 transition">
-                                    <i class="fas fa-times-circle mr-2"></i> Reject
                                 </button>
                             </form>
                             @endif

@@ -29,7 +29,7 @@ class MembersImport implements ToModel, WithHeadingRow
             'mobile_no' => $row['mobile_number'],
             'email' => $row['email'],
             'password' => Hash::make('password'), // Default password
-            'is_admin' => 0,
+            'user_role' => 'member',
         ]);
     }
 }

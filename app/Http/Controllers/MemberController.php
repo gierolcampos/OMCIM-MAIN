@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class MemberController extends Controller
@@ -14,11 +15,11 @@ class MemberController extends Controller
      */
     public function index(Request $request)
     {
-        // Check if user is admin
-        $isAdmin = auth()->user()->is_admin;
+        // Check if user can manage members
+        $isAdmin = auth()->user()->canManageMembers();
 
-        // Base query - for admin show all users, for regular users show only non-admin users
-        $query = $isAdmin ? User::query() : User::where('is_admin', 0);
+        // Base query - for admin show all users, for regular users show only members
+        $query = $isAdmin ? User::query() : User::where('user_role', 'member');
 
         // Apply search filter
         if ($request->has('search')) {
@@ -35,8 +36,7 @@ class MemberController extends Controller
         if ($isAdmin) {
             // Apply role filter
             if ($request->has('role') && $request->role !== '') {
-                $roleIsAdmin = $request->role === 'admin' ? 1 : 0;
-                $query->where('is_admin', $roleIsAdmin);
+                $query->where('user_role', $request->role);
             }
 
             // Apply status filter
@@ -52,8 +52,9 @@ class MemberController extends Controller
         if ($isAdmin) {
             // Admin statistics
             $totalUsers = User::count();
-            $totalAdmins = User::where('is_admin', 1)->count();
-            $totalMembers = User::where('is_admin', 0)->count();
+            $totalAdmins = User::where('user_role', 'superadmin')->count();
+            $totalOfficers = User::whereIn('user_role', ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])->count();
+            $totalMembers = User::where('user_role', 'member')->count();
             $activeUsers = User::where('status', 'active')->count();
             $inactiveUsers = User::where('status', 'inactive')->count();
 
@@ -62,15 +63,16 @@ class MemberController extends Controller
                 'isAdmin',
                 'totalUsers',
                 'totalAdmins',
+                'totalOfficers',
                 'totalMembers',
                 'activeUsers',
                 'inactiveUsers'
             ));
         } else {
             // Regular user statistics
-            $totalMembers = User::where('is_admin', 0)->count();
-            $verifiedMembers = User::where('is_admin', 0)->whereNotNull('email_verified_at')->count();
-            $unverifiedMembers = User::where('is_admin', 0)->whereNull('email_verified_at')->count();
+            $totalMembers = User::where('user_role', 'member')->count();
+            $verifiedMembers = User::where('user_role', 'member')->whereNotNull('email_verified_at')->count();
+            $unverifiedMembers = User::where('user_role', 'member')->whereNull('email_verified_at')->count();
 
             return view('members.index', compact(
                 'members',
@@ -107,7 +109,14 @@ class MemberController extends Controller
                 'year' => 'required|integer|min:1|max:5',
                 'section' => 'required|string|max:255',
                 'mobile_no' => 'required|string|max:11',
-                'email' => 'required|string|email|max:255|unique:users',
+                'email' => [
+                    'required',
+                    'string',
+                    'email',
+                    'max:255',
+                    'unique:users',
+                    'regex:/^[a-zA-Z0-9._%+-]+@navotaspolytechniccollege\.edu\.ph$/',
+                ],
                 'password' => 'required|string|min:8|confirmed',
             ]);
 
@@ -124,7 +133,6 @@ class MemberController extends Controller
                 'mobile_no' => $validated['mobile_no'],
                 'email' => $validated['email'],
                 'password' => bcrypt($validated['password']),
-                'is_admin' => 0,
             ]);
 
             return redirect()->route('members.index')
@@ -174,7 +182,14 @@ class MemberController extends Controller
                 'year' => 'required|integer|min:1|max:5',
                 'section' => 'required|string|max:255',
                 'mobile_no' => 'required|string|max:11',
-                'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+                'email' => [
+                    'required',
+                    'string',
+                    'email',
+                    'max:255',
+                    'unique:users,email,' . $id,
+                    'regex:/^[a-zA-Z0-9._%+-]+@navotaspolytechniccollege\.edu\.ph$/',
+                ],
             ]);
 
             $member->update($validated);
@@ -216,7 +231,14 @@ class MemberController extends Controller
     {
         try {
             $member = User::findOrFail($id);
+            $oldStatus = $member->status;
             $member->status = $request->status;
+
+            // If status is being changed to 'active', update email_verified_at timestamp
+            if ($request->status === 'active' && $oldStatus !== 'active') {
+                $member->email_verified_at = now();
+            }
+
             $member->save();
 
             return redirect()->back()
@@ -235,7 +257,16 @@ class MemberController extends Controller
     {
         try {
             $member = User::findOrFail($id);
-            $member->is_admin = $request->role === 'admin' ? 1 : 0;
+
+            // Validate the role
+            $validRoles = ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM', 'member'];
+            if (!in_array($request->role, $validRoles)) {
+                return redirect()->back()
+                    ->with('error', 'Invalid role specified.');
+            }
+
+            // Update user role
+            $member->user_role = $request->role;
             $member->save();
 
             return redirect()->back()
@@ -246,4 +277,6 @@ class MemberController extends Controller
                 ->with('error', 'Failed to update member role: ' . $e->getMessage());
         }
     }
+
+
 }

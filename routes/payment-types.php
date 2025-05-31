@@ -5,18 +5,19 @@ use App\Http\Controllers\GcashPaymentController;
 use Illuminate\Support\Facades\Route;
 
 // Admin Payment Type Routes
-Route::prefix('admin/payment-types')->middleware('is_admin')->group(function () {
+Route::prefix('admin/payment-types')->middleware(['auth', 'permission:manage-payments'])->group(function () {
     // Cash Payments
     Route::prefix('cash')->group(function () {
         Route::get('/', [CashPaymentController::class, 'index'])->name('admin.cash-payments.index');
         Route::get('/create', [CashPaymentController::class, 'create'])->name('admin.cash-payments.create');
         Route::post('/', [CashPaymentController::class, 'store'])->name('admin.cash-payments.store');
-        Route::get('/{id}', [CashPaymentController::class, 'show'])->name('admin.payment-types.cash.show');
+        Route::get('/{id}', [CashPaymentController::class, 'show'])->name('admin.cash-payments.show');
         Route::get('/{id}/edit', [CashPaymentController::class, 'edit'])->name('admin.cash-payments.edit');
         Route::put('/{id}', [CashPaymentController::class, 'update'])->name('admin.cash-payments.update');
         Route::delete('/{id}', [CashPaymentController::class, 'destroy'])->name('admin.cash-payments.destroy');
         Route::post('/{id}/approve', [CashPaymentController::class, 'approve'])->name('payment.types.cash.approve');
-        Route::post('/{id}/reject', [CashPaymentController::class, 'reject'])->name('payment.types.cash.reject');
+        Route::post('/{id}/admin-approve', [CashPaymentController::class, 'approve'])->name('admin.cash-payments.approve');
+        // Reject route removed as requested
     });
 
     // GCash Payments
@@ -24,12 +25,13 @@ Route::prefix('admin/payment-types')->middleware('is_admin')->group(function () 
         Route::get('/', [GcashPaymentController::class, 'index'])->name('admin.gcash-payments.index');
         Route::get('/create', [GcashPaymentController::class, 'create'])->name('admin.gcash-payments.create');
         Route::post('/', [GcashPaymentController::class, 'store'])->name('admin.gcash-payments.store');
-        Route::get('/{id}', [GcashPaymentController::class, 'show'])->name('admin.payment-types.gcash.show');
+        Route::get('/{id}', [GcashPaymentController::class, 'show'])->name('admin.gcash-payments.show');
         Route::get('/{id}/edit', [GcashPaymentController::class, 'edit'])->name('admin.gcash-payments.edit');
         Route::put('/{id}', [GcashPaymentController::class, 'update'])->name('admin.gcash-payments.update');
         Route::delete('/{id}', [GcashPaymentController::class, 'destroy'])->name('admin.gcash-payments.destroy');
         Route::post('/{id}/approve', [GcashPaymentController::class, 'approve'])->name('payment.types.gcash.approve');
-        Route::post('/{id}/reject', [GcashPaymentController::class, 'reject'])->name('payment.types.gcash.reject');
+        Route::post('/{id}/admin-approve', [GcashPaymentController::class, 'approve'])->name('admin.gcash-payments.approve');
+        // Reject route removed as requested
     });
 });
 

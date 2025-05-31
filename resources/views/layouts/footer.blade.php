@@ -65,18 +65,16 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- Column 1: About -->
             <div class="mb-8 md:mb-0">
-                <h5 class="footer-heading">About OMCMS</h5>
+                <h5 class="footer-heading">About OMCMS - ICS</h5>
                 <p class="text-gray-400">
-                    Organization Management and Club Management System (OMCMS) is dedicated to streamlining organizational processes and enhancing communication within the ICS community.
-                </p>
-                <div class="mt-4 flex">
+The Integrated Computer Society (ICS) of Navotas Polytechnic College empowers students to learn, connect, and lead through the Organization Management and Club Management System (OMCMS).                <div class="mt-4 flex">
                     <a href="https://www.facebook.com/npc.ics.organization" target="_blank" class="footer-social" aria-label="Facebook">
                         <i class="fab fa-facebook-f"></i>
                     </a>
                     <a href="https://twitter.com" target="_blank" class="footer-social" aria-label="Twitter">
                         <i class="fab fa-twitter"></i>
                     </a>
-                    <a href="https://instagram.com" target="_blank" class="footer-social" aria-label="Instagram">
+                    <a href="https://instagram.co   m" target="_blank" class="footer-social" aria-label="Instagram">
                         <i class="fab fa-instagram"></i>
                     </a>
                     <a href="https://linkedin.com" target="_blank" class="footer-social" aria-label="LinkedIn">
@@ -90,17 +88,26 @@
                 <h5 class="footer-heading">Quick Links</h5>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <a href="{{ url('/ics-hall') }}" class="footer-link">ICS Hall</a>
-                        <a href="{{ url('/events') }}" class="footer-link">Events</a>
-                        <a href="{{ url('/announcements') }}" class="footer-link">Announcements</a>
-                        <a href="{{ url('/payments') }}" class="footer-link">Payments</a>
+                        <a href="{{ url('omcms/ics_hall') }}" class="footer-link">ICS Hall</a>
+                        <a href="{{ url('omcms/events') }}" class="footer-link">Events</a>
+                        @if (!Auth::user()->canManageAnnouncements())
+                        <a href="{{ url('omcms/announcements') }}" class="footer-link">Announcements</a>
+                        @else
+                        <a href="{{ url('admin/announcements') }}" class="footer-link">Announcements</a>
+                        @endif
+
+                        @if(Auth::user()->isAdmin())
+                        <a href="{{ url('admin/payments') }}" class="footer-link">Payments</a>
+                        @else
+                        <a href="{{ url('omcms/payments') }}" class="footer-link">Payments</a>
+                        @endif
                     </div>
                     <div>
-                        @if(Auth::user()->is_admin)
-                        <a href="{{ url('/members') }}" class="footer-link">Members</a>
+                        @if(Auth::user()->canManageMembers())
+                        <a href="{{ url('admin/members') }}" class="footer-link">Members</a>
                         @endif
-                        @if(Auth::user()->is_admin)
-                        <a href="{{ url('/letters') }}" class="footer-link">Letters</a>
+                        @if(Auth::user()->canGenerateReports())
+                        <a href="{{ url('admin/letters') }}" class="footer-link">Reports</a>
                         @endif
                         <a href="{{ url('/aboutus') }}" class="footer-link">About Us</a>
                     </div>

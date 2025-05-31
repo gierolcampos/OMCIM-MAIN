@@ -20,7 +20,7 @@ class UsersTableSeeder extends Seeder
             'studentnumber' => '12345678',
             'email' => 'admin@gmail.com',
             'password' => Hash::make('password'),
-            'is_admin' => true,
+            'user_role' => 'superadmin',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

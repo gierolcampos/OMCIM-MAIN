@@ -12,6 +12,19 @@
             .hidden.sm\:flex.sm\:items-center {
                 display: flex !important;
             }
+
+            /* Officer section styles */
+            .officer-section {
+                margin-top: 5px;
+            }
+
+            .dropdown-header {
+                padding: 0.5rem 1rem;
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: #6b7280;
+                text-transform: uppercase;
+            }
         </style>
     </x-slot>
 
@@ -21,7 +34,7 @@
                 // Get all dropdown buttons
                 const dropdownButtons = document.querySelectorAll('.dropdown-button');
 
-                // Add click event to each button
+                // Add click event to each dropdown button
                 dropdownButtons.forEach(button => {
                     button.addEventListener('click', function() {
                         // Toggle the 'show' class on the parent dropdown
@@ -72,12 +85,24 @@
 
                 <div class="admin-stat-card purple">
                     <div>
-                        <p class="admin-stat-label">Admins</p>
+                        <p class="admin-stat-label">Superadmins</p>
                         <h3 class="admin-stat-value">{{ $totalAdmins }}</h3>
                     </div>
                     <div class="admin-stat-icon admin-stat-icon-purple">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="admin-stat-card cyan">
+                    <div>
+                        <p class="admin-stat-label">Officers</p>
+                        <h3 class="admin-stat-value">{{ $totalOfficers }}</h3>
+                    </div>
+                    <div class="admin-stat-icon admin-stat-icon-cyan">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                     </div>
                 </div>
@@ -126,7 +151,12 @@
                     <div class="min-w-[120px]">
                         <select name="role" class="admin-select w-full">
                             <option value="" {{ !request('role') ? 'selected' : '' }}>All Roles</option>
-                            <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admin</option>
+                            <option value="superadmin" {{ request('role') == 'superadmin' ? 'selected' : '' }}>Superadmin</option>
+                            <option value="Secretary" {{ request('role') == 'Secretary' ? 'selected' : '' }}>Secretary</option>
+                            <option value="Treasurer" {{ request('role') == 'Treasurer' ? 'selected' : '' }}>Treasurer</option>
+                            <option value="Auditor" {{ request('role') == 'Auditor' ? 'selected' : '' }}>Auditor</option>
+                            <option value="PIO" {{ request('role') == 'PIO' ? 'selected' : '' }}>PIO</option>
+                            <option value="BM" {{ request('role') == 'BM' ? 'selected' : '' }}>Business Manager</option>
                             <option value="member" {{ request('role') == 'member' ? 'selected' : '' }}>Member</option>
                         </select>
                     </div>
@@ -179,8 +209,9 @@
                                     <th>ID</th>
                                     <th>Member</th>
                                     <th>Role</th>
-                                    <th>Joined</th>
+                                    <th class="text-center">Active Status</th>
                                     <th>Status</th>
+                                    <th>Email Verified</th>
                                     <th class="text-center">Actions</th>
                                 </tr>
                             </thead>
@@ -207,19 +238,76 @@
                                         </td>
                                         <td>
                                             <div class="table-dropdown">
-                                                <button type="button" class="dropdown-button {{ $member->is_admin ? 'admin' : 'member' }}">
-                                                    {{ $member->is_admin ? 'Admin' : 'Member' }} <span class="sr-only">Toggle Dropdown</span>
+                                                <button type="button" class="dropdown-button
+                                                    {{ $member->user_role === 'superadmin' ? 'admin' : (in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']) ? 'officer' : 'member') }}">
+                                                    @if($member->user_role === 'superadmin')
+                                                        Superadmin
+                                                    @elseif(in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']))
+                                                        {{ $member->user_role === 'BM' ? 'Business Manager' : $member->user_role }}
+                                                    @else
+                                                        Member
+                                                    @endif
+                                                    <span class="sr-only">Toggle Dropdown</span>
                                                 </button>
                                                 <div class="dropdown-content">
-                                                    <a href="#" class="admin-option" onclick="event.preventDefault(); document.getElementById('role-admin-{{ $member->id }}').submit();">Admin</a>
+                                                    @if($member->user_role !== 'superadmin')
+                                                    <a href="#" class="admin-option" onclick="event.preventDefault(); document.getElementById('role-superadmin-{{ $member->id }}').submit();">Superadmin</a>
+                                                    @endif
+
+                                                    @if(!in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']))
+                                                    <div class="officer-section">
+                                                        <div class="dropdown-divider"></div>
+                                                        <div class="dropdown-header">Make Officer As:</div>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-secretary-{{ $member->id }}').submit();">Secretary</a>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-pio-{{ $member->id }}').submit();">PIO</a>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-treasurer-{{ $member->id }}').submit();">Treasurer</a>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-auditor-{{ $member->id }}').submit();">Auditor</a>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-bm-{{ $member->id }}').submit();">Business Manager</a>
+                                                    </div>
+                                                    @endif
+
+                                                    @if($member->user_role !== 'member')
                                                     <a href="#" class="member-option" onclick="event.preventDefault(); document.getElementById('role-member-{{ $member->id }}').submit();">Member</a>
+                                                    @endif
                                                 </div>
                                             </div>
 
-                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-admin-{{ $member->id }}" class="hidden">
+                                            <!-- Role Forms -->
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-superadmin-{{ $member->id }}" class="hidden">
                                                 @csrf
                                                 @method('PATCH')
-                                                <input type="hidden" name="role" value="admin">
+                                                <input type="hidden" name="role" value="superadmin">
+                                            </form>
+
+                                            <!-- Officer role forms -->
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-secretary-{{ $member->id }}" class="hidden">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="role" value="Secretary">
+                                            </form>
+
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-pio-{{ $member->id }}" class="hidden">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="role" value="PIO">
+                                            </form>
+
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-treasurer-{{ $member->id }}" class="hidden">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="role" value="Treasurer">
+                                            </form>
+
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-auditor-{{ $member->id }}" class="hidden">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="role" value="Auditor">
+                                            </form>
+
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-bm-{{ $member->id }}" class="hidden">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="role" value="BM">
                                             </form>
 
                                             <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-member-{{ $member->id }}" class="hidden">
@@ -227,8 +315,12 @@
                                                 @method('PATCH')
                                                 <input type="hidden" name="role" value="member">
                                             </form>
+
+
                                         </td>
-                                        <td>{{ $member->joined_date ? $member->joined_date->format('M d, Y') : 'N/A' }}</td>
+                                        <td class="text-center">
+                                            <span class="status-dot {{ strtolower($member->status) }}"></span>
+                                        </td>
                                         <td>
                                             <div class="table-dropdown">
                                                 <button type="button" class="dropdown-button">
@@ -258,6 +350,13 @@
                                                 @method('PATCH')
                                                 <input type="hidden" name="status" value="rejected">
                                             </form>
+                                        </td>
+                                        <td>
+                                            @if($member->email_verified_at)
+                                                <span class="text-xs text-green-600">{{ $member->email_verified_at->format('M d, Y g:i A') }}</span>
+                                            @else
+                                                <span class="text-xs text-gray-500">Not verified</span>
+                                            @endif
                                         </td>
                                         <td>
                                             <div class="flex items-center justify-center space-x-4">

@@ -192,12 +192,7 @@
                                     <i class="fas fa-check-circle mr-2"></i> Approve Payment
                                 </button>
                             </form>
-                            <form method="POST" action="{{ route('admin.payments.reject-non-ics', $nonIcsMember->id) }}" onsubmit="return confirm('Are you sure you want to reject this payment?');">
-                                @csrf
-                                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-white bg-[#c21313] hover:bg-red-800 transition">
-                                    <i class="fas fa-times-circle mr-2"></i> Reject Payment
-                                </button>
-                            </form>
+                            <!-- Reject button removed as requested -->
                         </div>
                         @endif
                     </div>

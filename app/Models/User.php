@@ -4,6 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -18,6 +21,8 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'role_id',
+
         'studentnumber',
         'firstname',
         'lastname',
@@ -29,6 +34,7 @@ class User extends Authenticatable
         'section',
         'mobile_no',
         'email',
+        'profile_picture',
         'password',
         'student_id',
         'course_year_section',
@@ -72,6 +78,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'deletion_requested_at' => 'datetime',
             'password' => 'hashed',
             'membership_expiry' => 'date',
             'status' => 'string',
@@ -80,13 +87,68 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if the user is an administrator.
+     * Get the role that the user belongs to.
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * Get the officer position that the user has.
+     */
+    public function officerPosition(): BelongsTo
+    {
+        return $this->belongsTo(OfficerPosition::class);
+    }
+
+    /**
+     * Get the committees that the user belongs to.
+     */
+    public function committees(): BelongsToMany
+    {
+        return $this->belongsToMany(Committee::class, 'committee_members')
+            ->withPivot('position')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the committees that the user heads.
+     */
+    public function headedCommittees(): HasMany
+    {
+        return $this->hasMany(Committee::class, 'head_id');
+    }
+
+    /**
+     * Check if the user is a superadmin.
+     *
+     * @return bool
+     */
+    public function isSuperadmin(): bool
+    {
+        return $this->user_role === 'superadmin';
+    }
+
+    /**
+     * Check if the user is an officer.
+     *
+     * @return bool
+     */
+    public function isOfficer(): bool
+    {
+        return in_array($this->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']);
+    }
+
+    /**
+     * Check if the user is an administrator (for backward compatibility).
      *
      * @return bool
      */
     public function isAdmin(): bool
     {
-        return $this->user_role === 'admin';
+        // Use the new role system
+        return $this->isSuperadmin();
     }
 
     /**
@@ -100,6 +162,102 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if the user can manage events.
+     *
+     * @return bool
+     */
+    public function canManageEvents(): bool
+    {
+        // Superadmins can manage everything
+        if ($this->isSuperadmin()) {
+            return true;
+        }
+
+        // Secretary and PIO can manage events
+        return in_array($this->user_role, ['Secretary', 'PIO']);
+    }
+
+    /**
+     * Check if the user can manage announcements.
+     *
+     * @return bool
+     */
+    public function canManageAnnouncements(): bool
+    {
+        // Superadmins can manage everything
+        if ($this->isSuperadmin()) {
+            return true;
+        }
+
+        // Secretary and PIO can manage announcements
+        return in_array($this->user_role, ['Secretary', 'PIO']);
+    }
+
+    /**
+     * Check if the user can manage payments.
+     *
+     * @return bool
+     */
+    public function canManagePayments(): bool
+    {
+        // Superadmins can manage everything
+        if ($this->isSuperadmin()) {
+            return true;
+        }
+
+        // Treasurer, Auditor, and Business Manager can manage payments
+        return in_array($this->user_role, ['Treasurer', 'Auditor', 'BM']);
+    }
+
+    /**
+     * Check if the user can manage reports.
+     *
+     * @return bool
+     */
+    public function canManageReports(): bool
+    {
+        // Superadmins can manage everything
+        if ($this->isSuperadmin()) {
+            return true;
+        }
+
+        // Only Secretary can manage reports
+        return $this->user_role === 'Secretary';
+    }
+
+    /**
+     * Check if the user can manage members.
+     *
+     * @return bool
+     */
+    public function canManageMembers(): bool
+    {
+        // Superadmins can manage everything
+        if ($this->isSuperadmin()) {
+            return true;
+        }
+
+        // Only Secretary can manage members
+        return $this->user_role === 'Secretary';
+    }
+
+    /**
+     * Check if the user can generate reports.
+     *
+     * @return bool
+     */
+    public function canGenerateReports(): bool
+    {
+        // Superadmins can generate everything
+        if ($this->isSuperadmin()) {
+            return true;
+        }
+
+        // Only Secretary can generate reports
+        return $this->user_role === 'Secretary';
+    }
+
+    /**
      * Get the user's full name.
      *
      * @return string
@@ -107,5 +265,31 @@ class User extends Authenticatable
     public function getNameAttribute(): string
     {
         return trim($this->firstname . ' ' . ($this->middlename ? $this->middlename . ' ' : '') . $this->lastname . ($this->suffix ? ' ' . $this->suffix : ''));
+    }
+
+    /**
+     * Get the notifications for the user.
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * Get the unread notifications count for the user.
+     */
+    public function getUnreadNotificationsCountAttribute(): int
+    {
+        return $this->notifications()->unread()->count();
+    }
+
+    /**
+     * Check if the user has requested account deletion.
+     *
+     * @return bool
+     */
+    public function hasDeletionRequest(): bool
+    {
+        return $this->deletion_requested_at !== null;
     }
 }

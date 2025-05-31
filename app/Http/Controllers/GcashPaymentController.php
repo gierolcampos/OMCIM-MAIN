@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\GcashPayment;
 use App\Models\User;
+use App\Traits\HasBase64Images;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class GcashPaymentController extends Controller
 {
+    use HasBase64Images;
     /**
      * Display a listing of the GCash payments.
      */
@@ -17,7 +20,7 @@ class GcashPaymentController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->is_admin) {
+        if (!$user->canManagePayments()) {
             abort(403, 'Unauthorized.');
         }
 
@@ -110,14 +113,14 @@ class GcashPaymentController extends Controller
         $admin = Auth::user();
 
         // Restrict payment creation to admin users only
-        if (!$admin->is_admin) {
+        if (!$admin->canManagePayments()) {
             return redirect()->route('client.gcash-payments.index')
                 ->with('error', 'You do not have permission to create payments as admin.');
         }
 
         // For admins, fetch all active members
         $users = User::where('status', 'active')
-                    ->where('is_admin', false)
+                    ->where('user_role', 'member')
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -132,7 +135,12 @@ class GcashPaymentController extends Controller
                         return $user;
                     });
 
-        return view('payments.gcash.create', compact('users'));
+        // Fetch active payment fees
+        $paymentFees = \App\Models\PaymentFee::where('is_active', true)
+                        ->orderBy('purpose')
+                        ->get();
+
+        return view('payments.gcash.create', compact('users', 'paymentFees'));
     }
 
     /**
@@ -141,7 +149,7 @@ class GcashPaymentController extends Controller
     public function store(Request $request)
     {
         // Restrict payment creation to admin users only
-        if (!auth()->user()->is_admin) {
+        if (!auth()->user()->canManagePayments()) {
             return redirect()->route('client.gcash-payments.index')
                 ->with('error', 'You do not have permission to create payments as admin.');
         }
@@ -170,12 +178,22 @@ class GcashPaymentController extends Controller
             // Get the user
             $user = User::findOrFail($validated['user_id']);
 
-            // Handle file upload
+            // Handle file upload and convert to base64
             $gcashProofPath = null;
             if ($request->hasFile('gcash_proof_of_payment')) {
                 $gcashProofFile = $request->file('gcash_proof_of_payment');
-                $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+
+                // Convert image to base64 and store in a file
+                $gcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                if (!$gcashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                    $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+                    Log::info('GCash proof stored as file: ' . $gcashProofPath);
+                } else {
+                    Log::info('GCash proof converted to base64 and stored in file: ' . $gcashProofPath);
+                }
             }
 
             // Create the payment record
@@ -219,7 +237,7 @@ class GcashPaymentController extends Controller
 
         // Allow admins to view any payment
         // For regular members, only allow them to view their own payments
-        if (!$user->is_admin && $payment->user_id !== $user->id) {
+        if (!$user->canManagePayments() && $payment->user_id !== $user->id) {
             abort(403, 'Unauthorized.');
         }
 
@@ -235,13 +253,13 @@ class GcashPaymentController extends Controller
         $user = Auth::user();
 
         // Only admins can edit any payment
-        if (!$user->is_admin) {
+        if (!$user->canManagePayments()) {
             abort(403, 'Unauthorized.');
         }
 
         // Fetch all active members
         $users = User::where('status', 'active')
-                    ->where('is_admin', false)
+                    ->where('user_role', 'member')
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -269,11 +287,25 @@ class GcashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can update any payment
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
-            $validated = $request->validate([
+            // Log the payment status change for debugging
+            Log::info('GCash payment status change attempt', [
+                'payment_id' => $payment->id,
+                'current_status' => $payment->payment_status,
+                'new_status' => $request->input('payment_status'),
+                'user_id' => $user->id
+            ]);
+
+            // Log all request data for debugging
+            Log::info('GCash payment update request data', [
+                'all_data' => $request->all(),
+                'files' => $request->allFiles()
+            ]);
+
+            $validationRules = [
                 'user_id' => 'required|exists:users,id',
                 'total_price' => 'required|numeric|min:0',
                 'payment_status' => 'required|string|in:Paid,Pending,Rejected,Refunded',
@@ -282,30 +314,59 @@ class GcashPaymentController extends Controller
                 'gcash_name' => 'required|string',
                 'gcash_num' => 'required|string',
                 'reference_number' => 'required|string',
-                'gcash_proof_of_payment' => 'nullable|file|mimes:jpg,jpeg|max:2048',
-            ], [
+            ];
+
+            // Only require proof of payment file if it's provided
+            if ($request->hasFile('gcash_proof_of_payment')) {
+                $validationRules['gcash_proof_of_payment'] = 'file|mimes:jpg,jpeg|max:2048';
+            }
+
+            $validationMessages = [
                 'user_id.required' => 'Please select a member.',
                 'gcash_name.required' => 'The GCash name field is required.',
                 'gcash_num.required' => 'The GCash number field is required.',
                 'reference_number.required' => 'The reference number field is required.',
                 'purpose.required' => 'The purpose field is required.',
                 'gcash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
-            ]);
+            ];
+
+            $validated = $request->validate($validationRules, $validationMessages);
 
             // Get the user
             $memberUser = User::findOrFail($validated['user_id']);
 
-            // Handle file upload
+            // Handle file upload and convert to base64
             $gcashProofPath = $payment->gcash_proof_path;
             if ($request->hasFile('gcash_proof_of_payment')) {
                 $gcashProofFile = $request->file('gcash_proof_of_payment');
-                $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
 
-                // Delete old file if it exists
-                if ($payment->gcash_proof_path && file_exists(public_path($payment->gcash_proof_path))) {
-                    unlink(public_path($payment->gcash_proof_path));
+                // Delete old file if exists
+                if ($payment->gcash_proof_path) {
+                    if ($this->isBase64File($payment->gcash_proof_path)) {
+                        // It's a base64 file, delete it
+                        $oldProofPath = public_path($payment->gcash_proof_path);
+                        if (file_exists($oldProofPath)) {
+                            unlink($oldProofPath);
+                        }
+                    } else if (!$this->isBase64Image($payment->gcash_proof_path) && file_exists(public_path($payment->gcash_proof_path))) {
+                        // It's a regular file, delete it
+                        unlink(public_path($payment->gcash_proof_path));
+                    }
                 }
+
+                // Convert image to base64 and store in a file
+                $newGcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                if (!$newGcashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $newGcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                    $gcashProofFile->move(public_path('proofs'), $newGcashProofPath);
+                    Log::info('GCash proof updated and stored as file: ' . $newGcashProofPath);
+                } else {
+                    Log::info('GCash proof updated and converted to base64 and stored in file: ' . $newGcashProofPath);
+                }
+
+                $gcashProofPath = $newGcashProofPath;
             }
 
             // Update the payment record
@@ -322,12 +383,18 @@ class GcashPaymentController extends Controller
                 'description' => $validated['description'] ?? null,
             ]);
 
-            return redirect()->route('admin.gcash-payments.show', $payment->id)
+            // Redirect to the payments index page instead of the show page
+            return redirect()->route('admin.payments.index')
                 ->with('success', 'GCash payment updated successfully.');
         } catch (\Exception $e) {
-            Log::error('GCash payment update failed: ' . $e->getMessage());
+            Log::error('GCash payment update failed: ' . $e->getMessage(), [
+                'payment_id' => $id,
+                'user_id' => $user->id,
+                'request_data' => $request->all(),
+                'exception' => $e
+            ]);
             return redirect()->back()
-                ->with('error', 'Failed to update payment. Please try again.')
+                ->with('error', 'Failed to update payment: ' . $e->getMessage())
                 ->withInput();
         }
     }
@@ -342,7 +409,7 @@ class GcashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can delete payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -367,7 +434,7 @@ class GcashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can approve payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -399,7 +466,7 @@ class GcashPaymentController extends Controller
             $user = Auth::user();
 
             // Only admins can reject payments
-            if (!$user->is_admin) {
+            if (!$user->canManagePayments()) {
                 abort(403, 'Unauthorized.');
             }
 
@@ -429,7 +496,7 @@ class GcashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to access this page
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.gcash-payments.create')
                 ->with('error', 'Please use the admin payment creation form.');
         }
@@ -442,7 +509,12 @@ class GcashPaymentController extends Controller
             $user->suffix
         ])));
 
-        return view('payments.gcash.member-create', compact('user', 'memberName'));
+        // Fetch active payment fees
+        $paymentFees = \App\Models\PaymentFee::where('is_active', true)
+                        ->orderBy('purpose')
+                        ->get();
+
+        return view('payments.gcash.member-create', compact('user', 'memberName', 'paymentFees'));
     }
 
     /**
@@ -453,7 +525,7 @@ class GcashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to use this method
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.gcash-payments.index')
                 ->with('error', 'Please use the admin payment creation form.');
         }
@@ -476,12 +548,22 @@ class GcashPaymentController extends Controller
                 'gcash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
             ]);
 
-            // Handle file upload
+            // Handle file upload and convert to base64
             $gcashProofPath = null;
             if ($request->hasFile('gcash_proof_of_payment')) {
                 $gcashProofFile = $request->file('gcash_proof_of_payment');
-                $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+
+                // Convert image to base64 and store in a file
+                $gcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                if (!$gcashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                    $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
+                    Log::info('Member GCash proof stored as file: ' . $gcashProofPath);
+                } else {
+                    Log::info('Member GCash proof converted to base64 and stored in file: ' . $gcashProofPath);
+                }
             }
 
             // Create the payment record
@@ -519,7 +601,7 @@ class GcashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to access this page
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.gcash-payments.edit', $id)
                 ->with('error', 'Please use the admin payment edit form.');
         }
@@ -530,13 +612,13 @@ class GcashPaymentController extends Controller
             ->first();
 
         if (!$payment) {
-            return redirect()->route('client.gcash-payments.index')
+            return redirect()->route('client.payments.index')
                 ->with('error', 'Payment not found or you do not have permission to edit it.');
         }
 
         // Only allow editing of pending payments
         if ($payment->payment_status !== 'Pending') {
-            return redirect()->route('client.gcash-payments.index')
+            return redirect()->route('client.payments.index')
                 ->with('error', 'Only pending payments can be edited.');
         }
 
@@ -548,7 +630,12 @@ class GcashPaymentController extends Controller
             $user->suffix
         ])));
 
-        return view('payments.gcash.member-edit', compact('payment', 'user', 'memberName'));
+        // Fetch active payment fees
+        $paymentFees = \App\Models\PaymentFee::where('is_active', true)
+                        ->orderBy('purpose')
+                        ->get();
+
+        return view('payments.gcash.member-edit', compact('payment', 'user', 'memberName', 'paymentFees'));
     }
 
     /**
@@ -559,7 +646,7 @@ class GcashPaymentController extends Controller
         $user = Auth::user();
 
         // Only allow non-admin users (members) to use this method
-        if ($user->is_admin) {
+        if ($user->canManagePayments()) {
             return redirect()->route('admin.gcash-payments.index')
                 ->with('error', 'Please use the admin payment edit form.');
         }
@@ -597,17 +684,38 @@ class GcashPaymentController extends Controller
                 'gcash_proof_of_payment.mimes' => 'The proof of payment must be a JPG file.',
             ]);
 
-            // Handle file upload
+            // Handle file upload and convert to base64
             $gcashProofPath = $payment->gcash_proof_path;
             if ($request->hasFile('gcash_proof_of_payment')) {
                 $gcashProofFile = $request->file('gcash_proof_of_payment');
-                $gcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
-                $gcashProofFile->move(public_path('proofs'), $gcashProofPath);
 
-                // Delete old file if it exists
-                if ($payment->gcash_proof_path && file_exists(public_path($payment->gcash_proof_path))) {
-                    unlink(public_path($payment->gcash_proof_path));
+                // Delete old file if exists
+                if ($payment->gcash_proof_path) {
+                    if ($this->isBase64File($payment->gcash_proof_path)) {
+                        // It's a base64 file, delete it
+                        $oldProofPath = public_path($payment->gcash_proof_path);
+                        if (file_exists($oldProofPath)) {
+                            unlink($oldProofPath);
+                        }
+                    } else if (!$this->isBase64Image($payment->gcash_proof_path) && file_exists(public_path($payment->gcash_proof_path))) {
+                        // It's a regular file, delete it
+                        unlink(public_path($payment->gcash_proof_path));
+                    }
                 }
+
+                // Convert image to base64 and store in a file
+                $newGcashProofPath = $this->convertToBase64($gcashProofFile, 'base64/payments/gcash');
+
+                if (!$newGcashProofPath) {
+                    // Fallback to regular file storage if conversion fails
+                    $newGcashProofPath = 'proofs/gcash_' . time() . '_' . $gcashProofFile->getClientOriginalName();
+                    $gcashProofFile->move(public_path('proofs'), $newGcashProofPath);
+                    Log::info('Member GCash proof updated and stored as file: ' . $newGcashProofPath);
+                } else {
+                    Log::info('Member GCash proof updated and converted to base64 and stored in file: ' . $newGcashProofPath);
+                }
+
+                $gcashProofPath = $newGcashProofPath;
             }
 
             // Update the payment record
@@ -621,7 +729,7 @@ class GcashPaymentController extends Controller
                 'description' => $validated['description'] ?? null,
             ]);
 
-            return redirect()->route('client.gcash-payments.index')
+            return redirect()->route('client.payments.index')
                 ->with('success', 'Payment updated successfully. It is still pending approval from an administrator.');
         } catch (\Exception $e) {
             Log::error('Member GCash payment update failed: ' . $e->getMessage());

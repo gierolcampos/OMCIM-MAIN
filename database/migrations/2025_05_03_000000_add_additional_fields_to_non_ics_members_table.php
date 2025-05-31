@@ -13,26 +13,34 @@ return new class extends Migration
     {
         Schema::table('non_ics_members', function (Blueprint $table) {
             // Add a field for student ID or registration number (optional)
-            $table->string('student_id')->nullable()->after('fullname');
-            
+            if (!Schema::hasColumn('non_ics_members', 'student_id')) {
+                $table->string('student_id')->nullable()->after('fullname');
+            }
+
             // Add a field for department or college
-            $table->string('department')->nullable()->after('course_year_section');
-            
+            if (!Schema::hasColumn('non_ics_members', 'department')) {
+                $table->string('department')->nullable()->after('course_year_section');
+            }
+
             // Add a field for additional contact information
-            $table->string('alternative_email')->nullable()->after('email');
-            
+            if (!Schema::hasColumn('non_ics_members', 'alternative_email')) {
+                $table->string('alternative_email')->nullable()->after('email');
+            }
+
             // Add a field for address
-            $table->text('address')->nullable()->after('mobile_no');
-            
-            
+            if (!Schema::hasColumn('non_ics_members', 'address')) {
+                $table->text('address')->nullable()->after('mobile_no');
+            }
+
             // Add a field for payment status tracking
-            $table->enum('payment_status', ['Paid', 'Pending', 'None'])->default('None');
-            
+            if (!Schema::hasColumn('non_ics_members', 'payment_status')) {
+                $table->enum('payment_status', ['Paid', 'Pending', 'None'])->default('None');
+            }
+
             // Add a field for membership type
-            $table->string('membership_type')->nullable()->after('payment_status');
-            
-            // Add a field for membership expiry date
-           
+            if (!Schema::hasColumn('non_ics_members', 'membership_type')) {
+                $table->string('membership_type')->nullable()->after('payment_status');
+            }
         });
     }
 

@@ -26,7 +26,7 @@
                     </svg>
                     Export to iCal
                 </a>
-                @if(Auth::user()->is_admin)
+                @if(Auth::user()->canManageEvents())
                 <a href="{{ route('events.create') }}" class="border border-[#c21313] hover:bg-[#c21313] hover:text-white px-6 py-2 text-sm rounded-lg transition duration-300 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
@@ -39,7 +39,7 @@
 
         <!-- Search and filters -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-100 mb-6 overflow-hidden">
-            <form action="{{ route('events.index') }}" method="GET" class="p-4">
+            <form action="{{ route('omcms.events') }}" method="GET" class="p-4">
                 <div class="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div class="relative flex-1">
                         <input type="text" name="search" id="search" placeholder="Search by event name, location..." value="{{ request('search') }}"
@@ -107,7 +107,11 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         @forelse($events ?? [] as $event)
-                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                        <tr class="hover:bg-gray-50 transition-colors duration-150"
+                            data-event-id="{{ $event->id }}"
+                            data-event-title="{{ $event->title }}"
+                            data-event-status="{{ $event->isPending() ? 'pending' : $event->status }}"
+                            data-event-end-date="{{ $event->end_date_time }}">
                             <td class="px-6 py-4">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 bg-red-100 rounded-md flex items-center justify-center">
@@ -134,19 +138,9 @@
                                 <div class="text-xs text-gray-500">{{ $event->location_details ?? 'No details' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                @if($event->status === 'upcoming')
-                                <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                    Upcoming
+                                <span class="event-status {{ $event->isPending() ? 'status-pending' : ($event->status === 'upcoming' ? 'status-upcoming' : ($event->status === 'completed' ? 'status-completed' : 'status-cancelled')) }}">
+                                    {{ $event->isPending() ? 'Pending' : ucfirst($event->status) }}
                                 </span>
-                                @elseif($event->status === 'completed')
-                                <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                    Completed
-                                </span>
-                                @else
-                                <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                                    Cancelled
-                                </span>
-                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                 <div class="flex items-center justify-center space-x-3">
@@ -156,7 +150,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                     </a>
-                                    @if(Auth::user()->is_admin)
+                                    @if(Auth::user()->isAdmin())
                                     <a href="{{ route('events.edit', $event) }}" class="text-gray-400 hover:text-gray-700 transition-colors duration-150" title="Edit">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -184,7 +178,7 @@
                                     </svg>
                                     <p class="font-medium">No events found</p>
                                     <p class="text-sm mt-1">Try adjusting your search or filter criteria</p>
-                                    @if(Auth::user()->is_admin)
+                                    @if(Auth::user()->isAdmin())
                                     <a href="{{ route('events.create') }}" class="mt-4 border border-[#c21313] hover:bg-[#c21313] hover:text-white px-6 py-2 text-sm rounded-lg transition duration-300">
                                         Create your first event
                                     </a>
@@ -226,6 +220,41 @@
     }
     .animate-fadeIn {
         animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    /* Event Status Badges */
+    .event-status {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        animation: fadeIn 0.5s ease forwards;
+    }
+
+    .status-upcoming {
+        background-color: #dcfce7;
+        color: #166534;
+        border: 1px solid #86efac;
+    }
+
+    .status-completed {
+        background-color: #f3f4f6;
+        color: #4b5563;
+        border: 1px solid #d1d5db;
+    }
+
+    .status-cancelled {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    .status-pending {
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fcd34d;
     }
 </style>
 @endsection

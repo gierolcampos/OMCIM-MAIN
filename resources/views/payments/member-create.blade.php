@@ -82,6 +82,31 @@
                             @enderror
                         </div>
 
+                        <!-- Purpose -->
+                        <div>
+                            <label for="purpose" class="block text-sm font-medium text-gray-700 mb-1">Purpose <span class="text-red-500">*</span></label>
+                            <select id="purpose" name="purpose" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" required onchange="if(typeof updatePrice === 'function') updatePrice();">
+                                <option value="">Select Purpose</option>
+                                @foreach($paymentFees as $fee)
+                                <option value="{{ $fee->purpose }}" {{ old('purpose') == $fee->purpose ? 'selected' : '' }} data-fee-id="{{ $fee->fee_id }}" data-price="{{ $fee->total_price }}">{{ $fee->purpose }}</option>
+                                @endforeach
+                            </select>
+                            <script>
+                                // Immediate script to update price on page load
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    setTimeout(function() {
+                                        if (typeof updatePrice === 'function') {
+                                            console.log('Calling updatePrice from inline script');
+                                            updatePrice();
+                                        }
+                                    }, 100);
+                                });
+                            </script>
+                            @error('purpose')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Amount -->
                         <div>
                             <label for="total_price" class="block text-sm font-medium text-gray-700 mb-1">Amount (₱) <span class="text-red-500">*</span></label>
@@ -89,27 +114,16 @@
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <span class="text-gray-500 sm:text-sm">₱</span>
                                 </div>
-                                <input type="number" step="0.01" min="0" id="total_price" name="total_price" value="{{ old('total_price') }}" class="block w-full pl-7 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="0.00" required>
+                                <input type="number" step="0.01" min="0" id="total_price" name="total_price" value="{{ old('total_price') }}" class="block w-full pl-7 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-gray-50" placeholder="0.00" required readonly>
+                                <p class="mt-1 text-xs text-gray-500">Amount is automatically set based on the selected purpose.</p>
                             </div>
                             @error('total_price')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
 
-                        <!-- Purpose -->
-                        <div>
-                            <label for="purpose" class="block text-sm font-medium text-gray-700 mb-1">Purpose <span class="text-red-500">*</span></label>
-                            <select id="purpose" name="purpose" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" required>
-                                <option value="">Select Purpose</option>
-                                <option value="Membership Fee" {{ old('purpose') == 'Membership Fee' ? 'selected' : '' }}>Membership Fee</option>
-                                <option value="Event Fees" {{ old('purpose') == 'Event Fees' ? 'selected' : '' }}>Event Fees</option>
-                                <option value="ICS Merch" {{ old('purpose') == 'ICS Merch' ? 'selected' : '' }}>ICS Merch</option>
-                                <option value="Other" {{ old('purpose') == 'Other' ? 'selected' : '' }}>Other</option>
-                            </select>
-                            @error('purpose')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                        <!-- Hidden field for fee_id -->
+                        <input type="hidden" id="fee_id" name="fee_id" value="{{ old('fee_id') }}">
 
                         <!-- Payment Status Information -->
                         <div>
@@ -118,10 +132,10 @@
                             <p class="mt-1 text-sm text-gray-500">Your payment will be reviewed by an administrator</p>
                         </div>
 
-                        <!-- Description -->
+                        <!-- Note -->
                         <div class="md:col-span-2">
-                            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                            <textarea id="description" name="description" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter payment description (optional)">{{ old('description') }}</textarea>
+                            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                            <textarea id="description" name="description" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter payment note (optional)">{{ old('description') }}</textarea>
                             @error('description')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
@@ -152,7 +166,13 @@
                                 <label for="receipt_control_number" class="block text-sm font-medium text-gray-700 mb-1">
                                     Receipt Control Number <span class="text-red-500">*</span>
                                 </label>
-                                <input type="number" id="receipt_control_number" name="receipt_control_number" value="{{ old('receipt_control_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="Enter receipt control number">
+                                <div class="flex">
+                                    <span class="inline-flex items-center px-3 py-2 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                        2-
+                                    </span>
+                                    <input type="text" id="receipt_control_number" name="receipt_control_number" value="{{ old('receipt_control_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-r-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="0001" pattern="[0-9]{4}" maxlength="4">
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">Enter 4-digit number (e.g., 0001)</p>
                                 @error('receipt_control_number')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -197,7 +217,7 @@
                                 <label for="gcash_num" class="block text-sm font-medium text-gray-700 mb-1">
                                     GCash Mobile Number <span class="text-red-500">*</span>
                                 </label>
-                                <input type="tel" id="gcash_num" name="gcash_num" value="{{ old('gcash_num') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="09123456789" pattern="[0-9]{11}">
+                                <input type="tel" id="gcash_num" name="gcash_num" value="{{ old('gcash_num') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="09123456789" pattern="[0-9]{11}" maxlength="11">
                                 <p class="mt-1 text-xs text-gray-500">Enter 11-digit mobile number</p>
                                 @error('gcash_num')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -211,7 +231,8 @@
                                 <label for="reference_number" class="block text-sm font-medium text-gray-700 mb-1">
                                     Reference Number <span class="text-red-500">*</span>
                                 </label>
-                                <input type="text" id="reference_number" name="reference_number" value="{{ old('reference_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="Enter GCash reference number">
+                                <input type="text" id="reference_number" name="reference_number" value="{{ old('reference_number') }}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c21313] focus:border-[#c21313] sm:text-sm" placeholder="Enter GCash reference number" pattern="[0-9]{13}" maxlength="13">
+                                <p class="mt-1 text-xs text-gray-500">Enter 13-digit reference number</p>
                                 @error('reference_number')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -252,12 +273,51 @@
 
 @section('scripts')
 <script>
+    // Global function to update price based on selected purpose
+    function updatePrice() {
+        const purposeSelect = document.getElementById('purpose');
+        const totalPriceInput = document.getElementById('total_price');
+        const feeIdInput = document.getElementById('fee_id');
+
+        if (!purposeSelect || !totalPriceInput) return;
+
+        const selectedOption = purposeSelect.options[purposeSelect.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            totalPriceInput.value = '';
+            if (feeIdInput) feeIdInput.value = '';
+            return;
+        }
+
+        const purpose = selectedOption.value;
+        const price = selectedOption.getAttribute('data-price');
+        const feeId = selectedOption.getAttribute('data-fee-id');
+
+        console.log('Global updatePrice called');
+        console.log('Selected purpose:', purpose);
+        console.log('Price attribute:', price);
+
+        if (purpose === 'Other') {
+            totalPriceInput.readOnly = false;
+            totalPriceInput.classList.remove('bg-gray-50');
+            totalPriceInput.value = '';
+            if (feeIdInput) feeIdInput.value = feeId || '';
+        } else if (price) {
+            totalPriceInput.value = price;
+            totalPriceInput.readOnly = true;
+            totalPriceInput.classList.add('bg-gray-50');
+            if (feeIdInput) feeIdInput.value = feeId || '';
+            console.log('Price set to:', price);
+        }
+    }
     document.addEventListener('DOMContentLoaded', function() {
         const paymentMethod = document.getElementById('payment_method');
         const gcashFieldsContainer = document.getElementById('gcash-fields');
         const cashFieldsContainer = document.getElementById('cash-fields');
         const totalPriceInput = document.getElementById('total_price');
         const receiptControlNumberInput = document.getElementById('receipt_control_number');
+
+        // Get the purpose select element
+        const purposeSelect = document.getElementById('purpose');
 
         // Function to toggle payment method fields
         function togglePaymentFields() {
@@ -374,6 +434,14 @@
                     return;
                 }
 
+                // Validate receipt control number format (4 digits)
+                if (!/^\d{4}$/.test(receiptControlNumberInput.value)) {
+                    e.preventDefault();
+                    alert('Receipt Control Number must be exactly 4 digits (e.g., 0001)');
+                    receiptControlNumberInput.focus();
+                    return;
+                }
+
                 // Check cash proof of payment
                 const cashProofOfPayment = document.getElementById('cash_proof_of_payment');
                 if (!cashProofOfPayment || !cashProofOfPayment.files || cashProofOfPayment.files.length === 0) {
@@ -424,6 +492,85 @@
 
             }
         });
+
+        // Direct approach for payment fee handling
+        const feeIdInput = document.getElementById('fee_id');
+
+        // Function to update price based on selected purpose
+        function updatePrice() {
+            if (!purposeSelect) return;
+
+            const selectedOption = purposeSelect.options[purposeSelect.selectedIndex];
+            if (!selectedOption || !selectedOption.value) {
+                totalPriceInput.value = '';
+                return;
+            }
+
+            const purpose = selectedOption.value;
+            const price = selectedOption.getAttribute('data-price');
+            const feeId = selectedOption.getAttribute('data-fee-id');
+
+            // For debugging
+            console.log('Selected purpose:', purpose);
+            console.log('Price attribute:', price);
+            console.log('Fee ID attribute:', feeId);
+
+            if (purpose === 'Other') {
+                // For "Other" purpose, allow manual entry
+                totalPriceInput.readOnly = false;
+                totalPriceInput.classList.remove('bg-gray-50');
+                totalPriceInput.value = '';
+                if (feeIdInput) feeIdInput.value = feeId || '';
+            } else if (price) {
+                // Set price from data attribute
+                totalPriceInput.value = price;
+                totalPriceInput.readOnly = true;
+                totalPriceInput.classList.add('bg-gray-50');
+                if (feeIdInput) feeIdInput.value = feeId || '';
+
+                console.log('Price set to:', price);
+            } else {
+                // If no price attribute, try to get it from the server
+                console.log('No price attribute, fetching from server...');
+
+                fetch(`/omcms/payments/fees/by-purpose?purpose=${encodeURIComponent(purpose)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Server response:', data);
+
+                        if (data.success && data.data) {
+                            totalPriceInput.value = data.data.total_price;
+                            totalPriceInput.readOnly = true;
+                            totalPriceInput.classList.add('bg-gray-50');
+                            if (feeIdInput) feeIdInput.value = data.data.fee_id || '';
+
+                            console.log('Price set from server to:', data.data.total_price);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching price:', error);
+                    });
+            }
+        }
+
+        // Add change event listener to purpose select
+        if (purposeSelect) {
+            purposeSelect.addEventListener('change', updatePrice);
+
+            // Also update price on page load
+            if (purposeSelect.value) {
+                console.log('Purpose already selected on page load:', purposeSelect.value);
+                updatePrice();
+            }
+
+            // Force a change event to initialize the price
+            setTimeout(() => {
+                console.log('Forcing price update...');
+                updatePrice();
+            }, 500);
+        } else {
+            console.error('Purpose select element not found!');
+        }
     });
 </script>
 @endsection

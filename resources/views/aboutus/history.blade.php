@@ -16,28 +16,17 @@
                                 <div class="mb-8">
                                     <h3 class="text-2xl text-[#c21313] font-bold mb-4">History of ICS</h3>
                                     <p class="mb-4">
-                                        To create a lively and thriving organization where each AIS student can expose their unique talent and skills in computer-related skills, feel valued, empowered, and inspired to achieve greatness. We strive to help students inculcate the essential virtues and attitudes, as well as develop necessary knowledge and competency levels required of an information systems professional.
-                                    </p>
+                                    The <b>Integrated Computer Society (ICS)</b> was established in <b>2019</b> at <b>Navotas Polytechnic College</b> as the official student organization for the <b>Bachelor of Science in Computer Science (BSCS)</b> program. It was created to unite students who share a passion for technology and computing, offering a platform for learning, collaboration, leadership, and innovation. From its early years, ICS has aimed to provide opportunities for students to enhance their technical skills, engage in meaningful projects, and build a strong sense of community within the field of computer science.</p>
                                 </div>
 
-                                <div class="mb-8">
-                                    <h3 class="text-2xl text-[#c21313] font-bold mb-4">Mission</h3>
                                     <p class="mb-4">
-                                        The ICS organization is committed to foster a supportive and inclusive environment where AIS students can excel academically and personally. We are dedicated to providing resources, opportunities, experiences, and guidance to help every AIS student know their goal and reach their full potential.
-
+                                    In <b>2022</b>, when the BSCS program was officially phased out and replaced with the <b>Association in Information Systems (AIS)</b> program, ICS continued its journey as the recognized organization for information systems students. Despite the changes in academic programs, the organization remained steadfast in its mission and values, adapting to the evolving needs of the students while maintaining its core purpose of promoting growth, excellence, and leadership in the tech community.
                                     </p>
                                 </div>
 
-                                <div>
-                                    <h3 class="text-2xl text-[#c21313] font-bold mb-4">Core Values</h3>
-                                    <ul class="list-disc pl-6 space-y-2">
-                                        <li>Innovation and Collaboration</li>
-                                        <li>Excellence and Integrity</li>
-                                        <li>Inclusivity</li>
-                                        <li>Leadership</li>
-                                        <li>Social Responsibility</li>
-                                    </ul>
-                                </div>
+                                 <p class="mb-4">
+                                    Today, ICS stands as a resilient and dynamic organization that continues to empower students through various activities, workshops, and initiatives, fostering not only academic success but also camaraderie, creativity, and professionalism. It remains committed to preparing its members to become skilled, ethical, and innovative professionals in the ever-changing world of information technology.</p>
+
                             </div>
                         </div>
                     </div>
