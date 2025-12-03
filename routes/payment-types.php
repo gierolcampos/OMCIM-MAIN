@@ -35,8 +35,8 @@ Route::prefix('admin/payment-types')->middleware(['auth', 'permission:manage-pay
     });
 });
 
-// Client Payment Type Routes
-Route::prefix('omcms/payment-types')->middleware(['auth', 'verified'])->group(function () {
+// Client Payment Type Routes - Moderators are excluded
+Route::prefix('omcms/payment-types')->middleware(['auth', 'verified', App\Http\Middleware\BlockModeratorPayments::class])->group(function () {
     // Cash Payments
     Route::prefix('cash')->group(function () {
         Route::get('/', [CashPaymentController::class, 'clientIndex'])->name('client.cash-payments.index');

@@ -127,18 +127,11 @@ class User extends Authenticatable
      */
     public function isSuperadmin(): bool
     {
-        return $this->user_role === 'superadmin';
+        $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
+        return in_array($role, ['super_admin', 'superadmin'], true);
     }
 
-    /**
-     * Check if the user is an officer.
-     *
-     * @return bool
-     */
-    public function isOfficer(): bool
-    {
-        return in_array($this->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']);
-    }
+    
 
     /**
      * Check if the user is an administrator (for backward compatibility).
@@ -173,6 +166,12 @@ class User extends Authenticatable
             return true;
         }
 
+        // Check for moderator role (case-insensitive)
+        $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
+        if ($role === 'moderator') {
+            return true;
+        }
+
         // Secretary and PIO can manage events
         return in_array($this->user_role, ['Secretary', 'PIO']);
     }
@@ -189,6 +188,12 @@ class User extends Authenticatable
             return true;
         }
 
+        // Check for moderator role (case-insensitive)
+        $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
+        if ($role === 'moderator') {
+            return true;
+        }
+
         // Secretary and PIO can manage announcements
         return in_array($this->user_role, ['Secretary', 'PIO']);
     }
@@ -200,13 +205,34 @@ class User extends Authenticatable
      */
     public function canManagePayments(): bool
     {
-        // Superadmins can manage everything
-        if ($this->isSuperadmin()) {
-            return true;
-        }
+        // Super admin and finance admin can manage payments (treated equally)
+        $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
+        return in_array($role, ['super_admin', 'superadmin', 'finance_admin'], true);
+    }
 
-        // Treasurer, Auditor, and Business Manager can manage payments
-        return in_array($this->user_role, ['Treasurer', 'Auditor', 'BM']);
+    /**
+     * Determine if the user is a finance admin.
+     */
+    public function isFinanceAdmin(): bool
+    {
+        return is_string($this->user_role) && strtolower($this->user_role) === 'finance_admin';
+    }
+
+    /**
+     * Determine if the user is any admin-level role.
+     */
+    public function isAdminRole(): bool
+    {
+        $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
+        return in_array($role, ['super_admin', 'superadmin', 'operations_admin', 'moderator', 'finance_admin'], true);
+    }
+
+    /**
+     * Admins can view all payments, only finance admin can manage.
+     */
+    public function canViewAllPayments(): bool
+    {
+        return $this->isAdminRole();
     }
 
     /**

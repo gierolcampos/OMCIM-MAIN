@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Auth;
 @extends('layouts.app')
 
 @section('content')
-@if(Auth::user()->canManagePayments())
+@if(Auth::user()->isAdminRole())
 <div class="py-12 bg-gray-50">
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
         <!-- Stats Cards -->
@@ -74,12 +74,14 @@ use Illuminate\Support\Facades\Auth;
                         @endif
                     </div>
                     <div class="flex flex-wrap mt-4 md:mt-0 space-x-3">
-                        <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-[#c21313] hover:bg-red-800 transition">
-                            <i class="fas fa-plus mr-2"></i> Record Payment
-                        </a>
-                        <a href="{{ route('admin.payment-fees.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition">
-                            <i class="fas fa-cog mr-2"></i> Manage Fees
-                        </a>
+                        @if(Auth::user()->isFinanceAdmin())
+                            <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-[#c21313] hover:bg-red-800 transition">
+                                <i class="fas fa-plus mr-2"></i> Record Payment
+                            </a>
+                            <a href="{{ route('admin.payment-fees.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition">
+                                <i class="fas fa-cog mr-2"></i> Manage Fees
+                            </a>
+                        @endif
                     </div>
                 </div>
 
@@ -257,17 +259,21 @@ use Illuminate\Support\Facades\Auth;
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             @if($payment->payment_status === 'Pending')
-                                                <form action="{{ route('admin.cash-payments.approve', $payment->id) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
-                                                        <i class="fas fa-check-circle"></i>
-                                                    </button>
-                                                </form>
-                                                <!-- Reject button removed as requested -->
+                                                @if(Auth::user()->isFinanceAdmin())
+                                                    <form action="{{ route('admin.cash-payments.approve', $payment->id) }}" method="POST" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    </form>
+                                                    <!-- Reject button removed as requested -->
+                                                @endif
                                             @elseif($payment->payment_status === 'Paid')
-                                                <a href="{{ route('admin.cash-payments.edit', $payment->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
+                                                @if(Auth::user()->isFinanceAdmin())
+                                                    <a href="{{ route('admin.cash-payments.edit', $payment->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                @endif
                                             @endif
                                         </div>
                                     </td>
@@ -313,17 +319,21 @@ use Illuminate\Support\Facades\Auth;
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             @if($payment->payment_status === 'Pending')
-                                                <form action="{{ route('admin.gcash-payments.approve', $payment->id) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
-                                                        <i class="fas fa-check-circle"></i>
-                                                    </button>
-                                                </form>
-                                                <!-- Reject button removed as requested -->
+                                                @if(Auth::user()->isFinanceAdmin())
+                                                    <form action="{{ route('admin.gcash-payments.approve', $payment->id) }}" method="POST" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    </form>
+                                                    <!-- Reject button removed as requested -->
+                                                @endif
                                             @elseif($payment->payment_status === 'Paid')
-                                                <a href="{{ route('admin.gcash-payments.edit', $payment->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
+                                                @if(Auth::user()->isFinanceAdmin())
+                                                    <a href="{{ route('admin.gcash-payments.edit', $payment->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                @endif
                                             @endif
                                         </div>
                                     </td>
@@ -339,9 +349,11 @@ use Illuminate\Support\Facades\Auth;
                                             </div>
                                             <p class="text-lg font-medium mb-1">No ICS member payments found</p>
                                             <p class="text-sm mb-3">Start recording ICS member payments to track financial transactions.</p>
-                                            <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 transition shadow-sm">
-                                                <i class="fas fa-plus mr-2"></i> RECORD A PAYMENT
-                                            </a>
+                                            @if(Auth::user()->isFinanceAdmin())
+                                                <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 transition shadow-sm">
+                                                    <i class="fas fa-plus mr-2"></i> RECORD A PAYMENT
+                                                </a>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -409,17 +421,21 @@ use Illuminate\Support\Facades\Auth;
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             @if($member->payment_status === 'Pending')
-                                                <form method="POST" action="{{ route('admin.payments.approve-non-ics', $member->id) }}" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
-                                                        <i class="fas fa-check-circle"></i>
-                                                    </button>
-                                                </form>
-                                                <!-- Reject button removed as requested -->
+                                                @if(Auth::user()->isFinanceAdmin())
+                                                    <form method="POST" action="{{ route('admin.payments.approve-non-ics', $member->id) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    </form>
+                                                    <!-- Reject button removed as requested -->
+                                                @endif
                                             @elseif($member->payment_status === 'Paid')
-                                                <a href="{{ route('admin.non-ics-members.edit', $member->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
+                                                @if(Auth::user()->isFinanceAdmin())
+                                                    <a href="{{ route('admin.non-ics-members.edit', $member->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                @endif
                                             @endif
                                         </div>
                                     </td>
@@ -437,9 +453,11 @@ use Illuminate\Support\Facades\Auth;
                                             </div>
                                             <p class="text-lg font-medium mb-1">No non-ICS member payments found</p>
                                             <p class="text-sm mb-3">Start recording non-ICS member payments to track financial transactions.</p>
-                                            <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 transition shadow-sm">
-                                                <i class="fas fa-plus mr-2"></i> RECORD A PAYMENT
-                                            </a>
+                                            @if(Auth::user()->isFinanceAdmin())
+                                                <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 transition shadow-sm">
+                                                    <i class="fas fa-plus mr-2"></i> RECORD A PAYMENT
+                                                </a>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

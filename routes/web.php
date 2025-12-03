@@ -97,8 +97,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/aboutus', function () { return view('aboutus.index');
     })->name('aboutus');
 
-     // Client Payment Routes
-     Route::prefix('omcms/payments')->middleware(['auth', 'verified'])->group(function () {
+     // Client Payment Routes - Moderators are excluded
+     Route::prefix('omcms/payments')->middleware(['auth', 'verified', App\Http\Middleware\BlockModeratorPayments::class])->group(function () {
         Route::get('/', [PaymentController::class, 'clientIndex'])->name('client.payments.index');
         Route::get('/create', [PaymentController::class, 'memberCreate'])->name('client.payments.create');
         Route::post('/', [PaymentController::class, 'memberStore'])->name('client.payments.store');
@@ -121,7 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 
- Route::prefix('admin')->middleware(['auth', 'role:superadmin'])->group(function () {
+ Route::prefix('admin')->middleware(['auth', 'role:super_admin,finance_admin,operations_admin,moderator'])->group(function () {
     // Route::get('/', function () {
     //     return view('admin.dashboard');
     // });
@@ -202,8 +202,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/announcements/{announcement}', [App\Http\Controllers\AnnouncementController::class, 'destroy'])->name('admin.announcements.destroy');
     });
 
-    // School Calendar Routes - only accessible to Superadmin
-    Route::prefix('school-calendars')->middleware(['role:superadmin'])->group(function () {
+    // School Calendar Routes - only accessible to Super Admin
+    Route::prefix('school-calendars')->middleware(['role:super_admin'])->group(function () {
         Route::get('/', [App\Http\Controllers\SchoolCalendarController::class, 'index'])->name('admin.school-calendars.index');
         Route::get('/create', [App\Http\Controllers\SchoolCalendarController::class, 'create'])->name('admin.school-calendars.create');
         Route::post('/', [App\Http\Controllers\SchoolCalendarController::class, 'store'])->name('admin.school-calendars.store');
@@ -213,52 +213,58 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{schoolCalendar}/set-current', [App\Http\Controllers\SchoolCalendarController::class, 'setCurrent'])->name('admin.school-calendars.set-current');
     });
 
-    // Account Deletion Requests Routes - only accessible to Superadmin
-    Route::prefix('deletion-requests')->middleware(['role:superadmin'])->group(function () {
+    // Account Deletion Requests Routes - only accessible to Super Admin
+    Route::prefix('deletion-requests')->middleware(['role:super_admin'])->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\DeletionRequestController::class, 'index'])->name('admin.deletion-requests.index');
         Route::delete('/{id}', [App\Http\Controllers\Admin\DeletionRequestController::class, 'approve'])->name('admin.deletion-requests.approve');
         Route::patch('/{id}', [App\Http\Controllers\Admin\DeletionRequestController::class, 'reject'])->name('admin.deletion-requests.reject');
     });
 
-    // Admin Payment Routes - only accessible to Treasurer, Auditor, Business Manager, and Superadmins
-    Route::prefix('payments')->middleware(['permission:manage-payments'])->group(function () {
-        Route::get('/', [PaymentController::class, 'index'])->name('admin.payments.index');
-        Route::get('/create', [PaymentController::class, 'create'])->name('admin.payments.create');
-        Route::post('/', [PaymentController::class, 'store'])->name('admin.payments.store');
+    // Admin Payment Routes
+    Route::prefix('payments')->group(function () {
+        // View-only for super_admin and finance_admin only
+        Route::middleware(['role:super_admin,finance_admin'])->group(function () {
+            Route::get('/', [PaymentController::class, 'index'])->name('admin.payments.index');
+            Route::get('/{id}', [PaymentController::class, 'show'])->name('admin.payments.show');
 
-        // Payment Fees API
-        Route::get('/fees', [PaymentController::class, 'getAllPaymentFees'])->name('admin.payments.fees.all');
-        Route::get('/fees/by-purpose', [PaymentController::class, 'getPaymentFeeByPurpose'])->name('admin.payments.fees.by-purpose');
+            // Payment Fees API (read)
+            Route::get('/fees', [PaymentController::class, 'getAllPaymentFees'])->name('admin.payments.fees.all');
+            Route::get('/fees/by-purpose', [PaymentController::class, 'getPaymentFeeByPurpose'])->name('admin.payments.fees.by-purpose');
 
-        // Payment Fees Management
-        Route::get('/fees/manage', [PaymentFeeController::class, 'index'])->name('admin.payment-fees.index');
-        Route::get('/fees/create', [PaymentFeeController::class, 'create'])->name('admin.payment-fees.create');
-        Route::post('/fees', [PaymentFeeController::class, 'store'])->name('admin.payment-fees.store');
-        Route::get('/fees/{id}', [PaymentFeeController::class, 'show'])->name('admin.payment-fees.show');
-        Route::get('/fees/{id}/edit', [PaymentFeeController::class, 'edit'])->name('admin.payment-fees.edit');
-        Route::put('/fees/{id}', [PaymentFeeController::class, 'update'])->name('admin.payment-fees.update');
-        Route::delete('/fees/{id}', [PaymentFeeController::class, 'destroy'])->name('admin.payment-fees.destroy');
-        Route::patch('/fees/{id}/toggle-active', [PaymentFeeController::class, 'toggleActive'])->name('admin.payment-fees.toggle-active');
+            // Non-ICS view
+            Route::get('/non-ics', function() {
+                return redirect()->route('admin.payments.index');
+            })->name('admin.payments.non-ics.index');
+            Route::get('/non-ics/{id}', [PaymentController::class, 'showNonIcs'])->name('admin.payments.show-non-ics');
+        });
 
-        // Non-ICS Member Payment Routes - must be defined before the generic routes
-        // Redirect non-ics index to main payments page
-        Route::get('/non-ics', function() {
-            return redirect()->route('admin.payments.index');
-        })->name('admin.payments.non-ics.index');
+        // Manage-only for super_admin and finance_admin (treated equally in payment section)
+        Route::middleware(['role:super_admin,finance_admin'])->group(function () {
+            Route::get('/create', [PaymentController::class, 'create'])->name('admin.payments.create');
+            Route::post('/', [PaymentController::class, 'store'])->name('admin.payments.store');
+            Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('admin.payments.edit');
+            Route::put('/{id}', [PaymentController::class, 'update'])->name('admin.payments.update');
+            Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('admin.payments.destroy');
+            Route::post('/{id}/approve', [PaymentController::class, 'approve'])->name('admin.payments.approve');
 
-        Route::get('/non-ics/{id}', [PaymentController::class, 'showNonIcs'])->name('admin.payments.show-non-ics');
-        Route::get('/non-ics/{id}/edit', [PaymentController::class, 'editNonIcs'])->name('admin.payments.non-ics.edit');
-        Route::put('/non-ics/{id}', [PaymentController::class, 'updateNonIcs'])->name('admin.payments.non-ics.update');
-        Route::post('/non-ics/{id}/approve', [PaymentController::class, 'approveNonIcs'])->name('admin.payments.approve-non-ics');
-        // Reject route removed as requested
+            // Payment Fees Management
+            Route::get('/fees/manage', [PaymentFeeController::class, 'index'])->name('admin.payment-fees.index');
+            Route::get('/fees/create', [PaymentFeeController::class, 'create'])->name('admin.payment-fees.create');
+            Route::post('/fees', [PaymentFeeController::class, 'store'])->name('admin.payment-fees.store');
+            Route::get('/fees/{id}/edit', [PaymentFeeController::class, 'edit'])->name('admin.payment-fees.edit');
+            Route::put('/fees/{id}', [PaymentFeeController::class, 'update'])->name('admin.payment-fees.update');
+            Route::delete('/fees/{id}', [PaymentFeeController::class, 'destroy'])->name('admin.payment-fees.destroy');
+            Route::patch('/fees/{id}/toggle-active', [PaymentFeeController::class, 'toggleActive'])->name('admin.payment-fees.toggle-active');
 
-        // Regular payment routes
-        Route::get('/{id}', [PaymentController::class, 'show'])->name('admin.payments.show');
-        Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('admin.payments.edit');
-        Route::put('/{id}', [PaymentController::class, 'update'])->name('admin.payments.update');
-        Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('admin.payments.destroy');
-        Route::post('/{id}/approve', [PaymentController::class, 'approve'])->name('admin.payments.approve');
-        // Reject route removed as requested
+            // Non-ICS manage
+            Route::get('/non-ics/{id}/edit', [PaymentController::class, 'editNonIcs'])->name('admin.payments.non-ics.edit');
+            Route::put('/non-ics/{id}', [PaymentController::class, 'updateNonIcs'])->name('admin.payments.non-ics.update');
+            Route::post('/non-ics/{id}/approve', [PaymentController::class, 'approveNonIcs'])->name('admin.payments.approve-non-ics');
+            Route::post('/non-ics/{id}/reject', [PaymentController::class, 'rejectNonIcs'])->name('admin.payments.reject-non-ics');
+
+            // Regular reject
+            Route::post('/{id}/reject', [PaymentController::class, 'reject'])->name('admin.payments.reject');
+        });
     });
 
 

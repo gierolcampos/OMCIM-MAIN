@@ -176,8 +176,8 @@ class PaymentTypeController extends Controller
                         return $user;
                     });
 
-        // Fetch all admin users for officer selection
-        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
+        // Fetch all admin users for officer selection (excluding PIO who cannot manage payments)
+        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'BM'])
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')

@@ -115,7 +115,7 @@ class AnnouncementController extends Controller
      */
     public function store(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->canManageAnnouncements()) {
             return redirect()->route('announcements.index')
                 ->with('error', 'You do not have permission to create announcements.');
         }
@@ -208,7 +208,7 @@ class AnnouncementController extends Controller
      */
     public function edit(Announcement $announcement)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->canManageAnnouncements()) {
             return redirect()->route('announcements.index')
                 ->with('error', 'You do not have permission to edit announcements.');
         }
@@ -221,7 +221,7 @@ class AnnouncementController extends Controller
      */
     public function update(Request $request, Announcement $announcement)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->canManageAnnouncements()) {
             return redirect()->route('announcements.index')
                 ->with('error', 'You do not have permission to update announcements.');
         }
@@ -323,7 +323,7 @@ class AnnouncementController extends Controller
      */
     public function destroy(Announcement $announcement)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->canManageAnnouncements()) {
             return redirect()->route('announcements.index')
                 ->with('error', 'You do not have permission to delete announcements.');
         }
@@ -376,7 +376,7 @@ class AnnouncementController extends Controller
      */
     public function latest()
     {
-        if (Auth::check() && Auth::user()->isAdmin()) {
+        if (Auth::check() && Auth::user()->canManageAnnouncements()) {
             // Admin can see all latest announcements from current academic year
             $announcements = Announcement::with('creator')
                 ->currentAcademicYear()
@@ -408,7 +408,7 @@ class AnnouncementController extends Controller
      */
     public function togglePin(Announcement $announcement)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->canManageAnnouncements()) {
             return redirect()->route('announcements.index')
                 ->with('error', 'You do not have permission to pin/unpin announcements.');
         }

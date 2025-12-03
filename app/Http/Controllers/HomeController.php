@@ -64,6 +64,21 @@ class HomeController extends Controller
 
     public function payments()
     {
+        $user = auth()->user();
+        
+        // Block moderators from accessing payments
+        if ($user) {
+            $role = is_string($user->user_role) ? strtolower($user->user_role) : '';
+            if ($role === 'moderator') {
+                abort(403, 'Moderators do not have access to the payment section.');
+            }
+        }
+        
+        // Redirect only super_admin and finance_admin to admin payments page
+        if ($user && $user->canManagePayments()) {
+            return redirect()->route('admin.payments.index');
+        }
+        
         return redirect()->route('client.payments.index');
     }
 

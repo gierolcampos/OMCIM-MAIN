@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Call the UsersTableSeeder to create admin user
+        // Legacy seeders
         $this->call(UsersTableSeeder::class);
 
         // Call the EventsTableSeeder
@@ -27,5 +27,8 @@ class DatabaseSeeder extends Seeder
 
         // Call the PaymentFeeSeeder
         $this->call(PaymentFeeSeeder::class);
+
+        // New RBAC sample users
+        $this->call(UserRoleSeeder::class);
     }
 }

@@ -105,7 +105,8 @@ class PaymentController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->isAdmin()) {
+        // Only super_admin and finance_admin can access admin payment view
+        if ($user->canManagePayments()) {
             // Admin view
             // Initialize empty array for payments
             $paymentsArray = [];
@@ -479,8 +480,8 @@ class PaymentController extends Controller
                         return $user;
                     });
 
-        // Fetch all admin users for officer selection
-        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
+        // Fetch all admin users for officer selection (excluding PIO who cannot manage payments)
+        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'BM'])
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')
@@ -1439,8 +1440,8 @@ class PaymentController extends Controller
                 abort(403, 'Unauthorized.');
             }
 
-            // Get all admin users for officer selection
-            $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])
+            // Get all admin users for officer selection (excluding PIO who cannot manage payments)
+            $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'BM'])
                 ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                 ->orderBy('lastname')
                 ->orderBy('firstname')

@@ -151,7 +151,7 @@
                     <div class="min-w-[120px]">
                         <select name="role" class="admin-select w-full">
                             <option value="" {{ !request('role') ? 'selected' : '' }}>All Roles</option>
-                            <option value="superadmin" {{ request('role') == 'superadmin' ? 'selected' : '' }}>Superadmin</option>
+                            <option value="super_admin" {{ request('role') == 'super_admin' ? 'selected' : '' }}>Super Admin</option>
                             <option value="Secretary" {{ request('role') == 'Secretary' ? 'selected' : '' }}>Secretary</option>
                             <option value="Treasurer" {{ request('role') == 'Treasurer' ? 'selected' : '' }}>Treasurer</option>
                             <option value="Auditor" {{ request('role') == 'Auditor' ? 'selected' : '' }}>Auditor</option>
@@ -239,9 +239,9 @@
                                         <td>
                                             <div class="table-dropdown">
                                                 <button type="button" class="dropdown-button
-                                                    {{ $member->user_role === 'superadmin' ? 'admin' : (in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']) ? 'officer' : 'member') }}">
-                                                    @if($member->user_role === 'superadmin')
-                                                        Superadmin
+                                                    {{ in_array(strtolower($member->user_role), ['super_admin','superadmin']) ? 'admin' : (in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']) ? 'officer' : 'member') }}">
+                                                    @if(in_array(strtolower($member->user_role), ['super_admin','superadmin']))
+                                                        Super Admin
                                                     @elseif(in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']))
                                                         {{ $member->user_role === 'BM' ? 'Business Manager' : $member->user_role }}
                                                     @else
@@ -250,8 +250,8 @@
                                                     <span class="sr-only">Toggle Dropdown</span>
                                                 </button>
                                                 <div class="dropdown-content">
-                                                    @if($member->user_role !== 'superadmin')
-                                                    <a href="#" class="admin-option" onclick="event.preventDefault(); document.getElementById('role-superadmin-{{ $member->id }}').submit();">Superadmin</a>
+                                                    @if(!in_array(strtolower($member->user_role), ['super_admin','superadmin']))
+                                                    <a href="#" class="admin-option" onclick="event.preventDefault(); document.getElementById('role-superadmin-{{ $member->id }}').submit();">Super Admin</a>
                                                     @endif
 
                                                     @if(!in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']))
@@ -276,7 +276,7 @@
                                             <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-superadmin-{{ $member->id }}" class="hidden">
                                                 @csrf
                                                 @method('PATCH')
-                                                <input type="hidden" name="role" value="superadmin">
+                                                <input type="hidden" name="role" value="super_admin">
                                             </form>
 
                                             <!-- Officer role forms -->

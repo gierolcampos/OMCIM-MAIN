@@ -122,13 +122,13 @@
                     {{ __('ICS Hall') }}
                 </x-nav-link>
 
-                @if(Auth::user()->isAdmin())
+                @if(Auth::user()->isSuperadmin())
                     <x-nav-link :href="route('dashboard.index')" :active="request()->routeIs('dashboard.*')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
                 @endif
 
-                @if(Auth::user()->isAdmin())
+                @if(Auth::user()->canManageMembers())
                     <x-nav-link :href="route('admin.members.index')" :active="request()->routeIs('admin.members.*')">
                         {{ __('Members') }}
                     </x-nav-link>
@@ -148,14 +148,20 @@
                     </x-nav-link>
                 @endif
 
-                @if(Auth::user()->canManagePayments())
-                    <x-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
-                        {{ __('Payments') }}
-                    </x-nav-link>
-                @else
-                    <x-nav-link :href="route('client.payments.index')" :active="request()->routeIs('client.payments.*')">
-                        {{ __('Payments') }}
-                    </x-nav-link>
+                @php
+                    $userRole = strtolower(Auth::user()->user_role ?? '');
+                    $isModerator = $userRole === 'moderator';
+                @endphp
+                @if(!$isModerator)
+                    @if(Auth::user()->canManagePayments())
+                        <x-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
+                            {{ __('Payments') }}
+                        </x-nav-link>
+                    @else
+                        <x-nav-link :href="route('client.payments.index')" :active="request()->routeIs('client.payments.*')">
+                            {{ __('Payments') }}
+                        </x-nav-link>
+                    @endif
                 @endif
 
                 @if(Auth::user()->canManageReports())
@@ -362,14 +368,20 @@
                     {{ __('Announcements') }}
                 </x-responsive-nav-link>
             @endif
-            @if(Auth::user()->canManagePayments())
-                <x-responsive-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
-                    {{ __('Payments') }}
-                </x-responsive-nav-link>
-            @else
-                <x-responsive-nav-link :href="route('client.payments.index')" :active="request()->routeIs('client.payments.*')">
-                    {{ __('Payments') }}
-                </x-responsive-nav-link>
+            @php
+                $userRole = strtolower(Auth::user()->user_role ?? '');
+                $isModerator = $userRole === 'moderator';
+            @endphp
+            @if(!$isModerator)
+                @if(Auth::user()->canManagePayments())
+                    <x-responsive-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
+                        {{ __('Payments') }}
+                    </x-responsive-nav-link>
+                @else
+                    <x-responsive-nav-link :href="route('client.payments.index')" :active="request()->routeIs('client.payments.*')">
+                        {{ __('Payments') }}
+                    </x-responsive-nav-link>
+                @endif
             @endif
 
             @if(Auth::user()->canManageReports())

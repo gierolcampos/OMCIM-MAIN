@@ -5,40 +5,36 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Illuminate\Support\Facades\Auth;
 
 class RoleMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     * @param  string  $role  The role name (superadmin, admin, member)
-     */
-    public function handle(Request $request, Closure $next, string $role): Response
-    {
-        if (!Auth::check()) {
-            return redirect()->route('login');
-        }
+	/**
+	 * Handle an incoming request.
+	 * Usage: role:super_admin,finance_admin
+	 */
+	public function handle(Request $request, Closure $next, ...$roles): Response
+	{
+		$user = $request->user();
+		if (!$user) {
+			abort(403, 'Unauthorized.');
+		}
 
-        $user = Auth::user();
+		// Super admin bypass (supports legacy 'superadmin')
+		$roleValue = is_string($user->user_role) ? strtolower($user->user_role) : '';
+		if (in_array($roleValue, ['super_admin', 'superadmin'], true)) {
+			return $next($request);
+		}
 
-        // Check if the user has the required role
-        if ($role === 'superadmin' && !$user->isSuperadmin()) {
-            abort(403, 'Unauthorized. Superadmin access required.');
-        }
+		// Finance admin bypass for payment routes (treated like super_admin in payment section)
+		if ($roleValue === 'finance_admin' && ($request->is('admin/payments*') || $request->is('admin/payment-types*'))) {
+			return $next($request);
+		}
 
-        if ($role === 'officer' && !$user->isOfficer()) {
-            abort(403, 'Unauthorized. Officer access required.');
-        }
+		$allowed = array_map(fn($r) => strtolower(trim((string)$r)), $roles);
+		if (in_array($roleValue, $allowed, true)) {
+			return $next($request);
+		}
 
-        if ($role === 'admin' && !$user->isAdmin()) {
-            abort(403, 'Unauthorized. Admin access required.');
-        }
-
-        // For 'member' role, all authenticated users can access
-        // No need to check specifically for member role
-
-        return $next($request);
-    }
+		abort(403, 'Forbidden.');
+	}
 }

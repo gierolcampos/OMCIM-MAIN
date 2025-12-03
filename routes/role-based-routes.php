@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Superadmin Routes
-Route::prefix('admin')->middleware(['auth', 'role:superadmin'])->group(function () {
+// Super Admin Routes
+Route::prefix('admin')->middleware(['auth', 'role:super_admin'])->group(function () {
     // Member Management routes are defined in web.php
 
     // Committee Management

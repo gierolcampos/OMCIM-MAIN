@@ -96,7 +96,7 @@ The Integrated Computer Society (ICS) of Navotas Polytechnic College empowers st
                         <a href="{{ url('admin/announcements') }}" class="footer-link">Announcements</a>
                         @endif
 
-                        @if(Auth::user()->isAdmin())
+                        @if(Auth::user()->canManagePayments())
                         <a href="{{ url('admin/payments') }}" class="footer-link">Payments</a>
                         @else
                         <a href="{{ url('omcms/payments') }}" class="footer-link">Payments</a>
