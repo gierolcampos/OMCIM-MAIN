@@ -74,7 +74,7 @@ use Illuminate\Support\Facades\Auth;
                         @endif
                     </div>
                     <div class="flex flex-wrap mt-4 md:mt-0 space-x-3">
-                        @if(Auth::user()->isFinanceAdmin())
+                        @if(Auth::user()->canManagePayments())
                             <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-[#c21313] hover:bg-red-800 transition">
                                 <i class="fas fa-plus mr-2"></i> Record Payment
                             </a>
@@ -259,7 +259,7 @@ use Illuminate\Support\Facades\Auth;
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             @if($payment->payment_status === 'Pending')
-                                                @if(Auth::user()->isFinanceAdmin())
+                                                @if(Auth::user()->canManagePayments())
                                                     <form action="{{ route('admin.cash-payments.approve', $payment->id) }}" method="POST" class="inline">
                                                         @csrf
                                                         <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
@@ -269,7 +269,7 @@ use Illuminate\Support\Facades\Auth;
                                                     <!-- Reject button removed as requested -->
                                                 @endif
                                             @elseif($payment->payment_status === 'Paid')
-                                                @if(Auth::user()->isFinanceAdmin())
+                                                @if(Auth::user()->canManagePayments())
                                                     <a href="{{ route('admin.cash-payments.edit', $payment->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
@@ -319,7 +319,7 @@ use Illuminate\Support\Facades\Auth;
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             @if($payment->payment_status === 'Pending')
-                                                @if(Auth::user()->isFinanceAdmin())
+                                                @if(Auth::user()->canManagePayments())
                                                     <form action="{{ route('admin.gcash-payments.approve', $payment->id) }}" method="POST" class="inline">
                                                         @csrf
                                                         <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
@@ -329,7 +329,7 @@ use Illuminate\Support\Facades\Auth;
                                                     <!-- Reject button removed as requested -->
                                                 @endif
                                             @elseif($payment->payment_status === 'Paid')
-                                                @if(Auth::user()->isFinanceAdmin())
+                                                @if(Auth::user()->canManagePayments())
                                                     <a href="{{ route('admin.gcash-payments.edit', $payment->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
@@ -349,7 +349,7 @@ use Illuminate\Support\Facades\Auth;
                                             </div>
                                             <p class="text-lg font-medium mb-1">No ICS member payments found</p>
                                             <p class="text-sm mb-3">Start recording ICS member payments to track financial transactions.</p>
-                                            @if(Auth::user()->isFinanceAdmin())
+                                            @if(Auth::user()->canManagePayments())
                                                 <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 transition shadow-sm">
                                                     <i class="fas fa-plus mr-2"></i> RECORD A PAYMENT
                                                 </a>
@@ -421,7 +421,7 @@ use Illuminate\Support\Facades\Auth;
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             @if($member->payment_status === 'Pending')
-                                                @if(Auth::user()->isFinanceAdmin())
+                                                @if(Auth::user()->canManagePayments())
                                                     <form method="POST" action="{{ route('admin.payments.approve-non-ics', $member->id) }}" class="inline">
                                                         @csrf
                                                         <button type="submit" class="text-green-600 hover:text-green-800" title="Approve Payment">
@@ -431,7 +431,7 @@ use Illuminate\Support\Facades\Auth;
                                                     <!-- Reject button removed as requested -->
                                                 @endif
                                             @elseif($member->payment_status === 'Paid')
-                                                @if(Auth::user()->isFinanceAdmin())
+                                                @if(Auth::user()->canManagePayments())
                                                     <a href="{{ route('admin.non-ics-members.edit', $member->id) }}" class="text-blue-600 hover:text-blue-800" title="Edit Payment">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
@@ -453,7 +453,7 @@ use Illuminate\Support\Facades\Auth;
                                             </div>
                                             <p class="text-lg font-medium mb-1">No non-ICS member payments found</p>
                                             <p class="text-sm mb-3">Start recording non-ICS member payments to track financial transactions.</p>
-                                            @if(Auth::user()->isFinanceAdmin())
+                                            @if(Auth::user()->canManagePayments())
                                                 <a href="{{ route('admin.payments.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 transition shadow-sm">
                                                     <i class="fas fa-plus mr-2"></i> RECORD A PAYMENT
                                                 </a>
