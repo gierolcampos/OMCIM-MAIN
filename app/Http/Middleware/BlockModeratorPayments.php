@@ -18,7 +18,7 @@ class BlockModeratorPayments
         
         if ($user) {
             $role = is_string($user->user_role) ? strtolower($user->user_role) : '';
-            if ($role === 'moderator') {
+            if ($role === 'secretary') {
                 abort(403, 'Moderators do not have access to the payment section.');
             }
         }

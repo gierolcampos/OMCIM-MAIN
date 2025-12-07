@@ -152,7 +152,7 @@
                     $userRole = strtolower(Auth::user()->user_role ?? '');
                     $isModerator = $userRole === 'moderator';
                 @endphp
-                @if(!$isModerator)
+                
                     @if(Auth::user()->canManagePayments())
                         <x-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
                             {{ __('Payments') }}
@@ -162,7 +162,7 @@
                             {{ __('Payments') }}
                         </x-nav-link>
                     @endif
-                @endif
+                
 
                 @if(Auth::user()->canManageReports())
                     <x-nav-link :href="route('admin.reports.index')" :active="request()->routeIs('admin.reports.*')">
