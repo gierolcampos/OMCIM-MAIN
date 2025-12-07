@@ -152,11 +152,9 @@
                         <select name="role" class="admin-select w-full">
                             <option value="" {{ !request('role') ? 'selected' : '' }}>All Roles</option>
                             <option value="super_admin" {{ request('role') == 'super_admin' ? 'selected' : '' }}>Super Admin</option>
-                            <option value="Secretary" {{ request('role') == 'Secretary' ? 'selected' : '' }}>Secretary</option>
-                            <option value="Treasurer" {{ request('role') == 'Treasurer' ? 'selected' : '' }}>Treasurer</option>
-                            <option value="Auditor" {{ request('role') == 'Auditor' ? 'selected' : '' }}>Auditor</option>
-                            <option value="PIO" {{ request('role') == 'PIO' ? 'selected' : '' }}>PIO</option>
-                            <option value="BM" {{ request('role') == 'BM' ? 'selected' : '' }}>Business Manager</option>
+                            <option value="finance_admin" {{ request('role') == 'finance_admin' ? 'selected' : '' }}>Finance admin - Treasurer</option>
+                            <option value="operations_admin" {{ request('role') == 'operations_admin' ? 'selected' : '' }}> Operations - Secretary, Business Manager</option>
+                            <option value="moderator" {{ request('role') == 'moderator' ? 'selected' : '' }}>Moderator - P.I.O</option>
                             <option value="member" {{ request('role') == 'member' ? 'selected' : '' }}>Member</option>
                         </select>
                     </div>
@@ -239,10 +237,10 @@
                                         <td>
                                             <div class="table-dropdown">
                                                 <button type="button" class="dropdown-button
-                                                    {{ in_array(strtolower($member->user_role), ['super_admin','superadmin']) ? 'admin' : (in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']) ? 'officer' : 'member') }}">
+                                                    {{ in_array(strtolower($member->user_role), ['super_admin','superadmin']) ? 'admin' : (in_array($member->user_role, ['finance_admin', 'operations_admin', 'moderator']) ? 'officer' : 'member') }}">
                                                     @if(in_array(strtolower($member->user_role), ['super_admin','superadmin']))
                                                         Super Admin
-                                                    @elseif(in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']))
+                                                    @elseif(in_array($member->user_role, ['finance_admin', 'operations_admin', 'moderator']))
                                                         {{ $member->user_role === 'BM' ? 'Business Manager' : $member->user_role }}
                                                     @else
                                                         Member
@@ -254,15 +252,14 @@
                                                     <a href="#" class="admin-option" onclick="event.preventDefault(); document.getElementById('role-superadmin-{{ $member->id }}').submit();">Super Admin</a>
                                                     @endif
 
-                                                    @if(!in_array($member->user_role, ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM']))
+                                                    @if(!in_array($member->user_role, ['finance_admin', 'operations_admin', 'moderator']))
                                                     <div class="officer-section">
                                                         <div class="dropdown-divider"></div>
                                                         <div class="dropdown-header">Make Officer As:</div>
-                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-secretary-{{ $member->id }}').submit();">Secretary</a>
-                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-pio-{{ $member->id }}').submit();">PIO</a>
-                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-treasurer-{{ $member->id }}').submit();">Treasurer</a>
-                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-auditor-{{ $member->id }}').submit();">Auditor</a>
-                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-bm-{{ $member->id }}').submit();">Business Manager</a>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-operations_admin-{{ $member->id }}').submit();">Operation Admin - Secretary,Buisness manager</a>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-finance_admin-{{ $member->id }}').submit();">Finance Admin - Treasurer/Audit</a>
+                                                        <a href="#" onclick="event.preventDefault(); document.getElementById('role-moderator-{{ $member->id }}').submit();">Moderator - PIO</a>
+                                                        
                                                     </div>
                                                     @endif
 
@@ -280,36 +277,23 @@
                                             </form>
 
                                             <!-- Officer role forms -->
-                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-secretary-{{ $member->id }}" class="hidden">
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-operations_admin-{{ $member->id }}" class="hidden">
                                                 @csrf
                                                 @method('PATCH')
-                                                <input type="hidden" name="role" value="Secretary">
+                                                <input type="hidden" name="role" value="operations_admin">
                                             </form>
 
-                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-pio-{{ $member->id }}" class="hidden">
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-finance_admin-{{ $member->id }}" class="hidden">
                                                 @csrf
                                                 @method('PATCH')
-                                                <input type="hidden" name="role" value="PIO">
+                                                <input type="hidden" name="role" value="finance_admin">
                                             </form>
 
-                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-treasurer-{{ $member->id }}" class="hidden">
+                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-moderator-{{ $member->id }}" class="hidden">
                                                 @csrf
                                                 @method('PATCH')
-                                                <input type="hidden" name="role" value="Treasurer">
+                                                <input type="hidden" name="role" value="moderator">
                                             </form>
-
-                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-auditor-{{ $member->id }}" class="hidden">
-                                                @csrf
-                                                @method('PATCH')
-                                                <input type="hidden" name="role" value="Auditor">
-                                            </form>
-
-                                            <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-bm-{{ $member->id }}" class="hidden">
-                                                @csrf
-                                                @method('PATCH')
-                                                <input type="hidden" name="role" value="BM">
-                                            </form>
-
                                             <form action="{{ route('members.updateRole', $member) }}" method="POST" id="role-member-{{ $member->id }}" class="hidden">
                                                 @csrf
                                                 @method('PATCH')

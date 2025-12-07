@@ -53,7 +53,7 @@ class MemberController extends Controller
             // Admin statistics
             $totalUsers = User::count();
             $totalAdmins = User::where('user_role', 'superadmin')->count();
-            $totalOfficers = User::whereIn('user_role', ['Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM'])->count();
+            $totalOfficers = User::whereIn('user_role', ['finance_admin', 'operations_admin', 'moderator'])->count();
             $totalMembers = User::where('user_role', 'member')->count();
             $activeUsers = User::where('status', 'active')->count();
             $inactiveUsers = User::where('status', 'inactive')->count();
@@ -259,7 +259,7 @@ class MemberController extends Controller
             $member = User::findOrFail($id);
 
             // Validate the role
-            $validRoles = ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'PIO', 'BM', 'member'];
+            $validRoles = ['super_admin', 'finance_admin', 'operations_admin', 'moderator', 'member'];
             if (!in_array($request->role, $validRoles)) {
                 return redirect()->back()
                     ->with('error', 'Invalid role specified.');
