@@ -279,7 +279,7 @@ class EventController extends Controller
     public function edit(Event $event)
     {
         // Check if user is admin
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->canManageEvents()) {
             return redirect()->route('events.index')
                 ->with('error', 'You do not have permission to edit events.');
         }

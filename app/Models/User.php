@@ -161,19 +161,27 @@ class User extends Authenticatable
      */
     public function canManageEvents(): bool
     {
-        // Superadmins can manage everything
-        if ($this->isSuperadmin()) {
-            return true;
-        }
+       // Superadmins can manage everything
+    if ($this->isSuperadmin()) {
+        return true;
+    }
 
-        // Check for moderator role (case-insensitive)
-        $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
-        if ($role === 'moderator') {
-            return true;
-        }
+    // Normalize role to lowercase
+    $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
 
-        // Secretary and PIO can manage events
-        return in_array($this->user_role, ['Secretary', 'PIO']);
+    // Roles allowed to manage events
+    $allowedRoles = ['moderator', 'operations_admin'];
+    if (in_array($role, $allowedRoles)) {
+        return true;
+    }
+
+    // Officer positions that can manage events
+    $officerPositions = ['Secretary', 'PIO'];
+    if (in_array($this->user_role, $officerPositions)) {
+        return true;
+    }
+
+    return false;
     }
 
     /**
@@ -183,19 +191,27 @@ class User extends Authenticatable
      */
     public function canManageAnnouncements(): bool
     {
-        // Superadmins can manage everything
-        if ($this->isSuperadmin()) {
-            return true;
-        }
+          // Superadmins can manage everything
+    if ($this->isSuperadmin()) {
+        return true;
+    }
 
-        // Check for moderator role (case-insensitive)
-        $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
-        if ($role === 'moderator') {
-            return true;
-        }
+    // Normalize role to lowercase
+    $role = is_string($this->user_role) ? strtolower($this->user_role) : '';
 
-        // Secretary and PIO can manage announcements
-        return in_array($this->user_role, ['Secretary', 'PIO']);
+    // Roles allowed to manage announcements
+    $allowedRoles = ['moderator', 'operations_admin'];
+    if (in_array($role, $allowedRoles)) {
+        return true;
+    }
+
+    // Officer positions that can manage announcements
+    $officerPositions = ['Secretary', 'PIO'];
+    if (in_array($this->user_role, $officerPositions)) {
+        return true;
+    }
+
+    return false;
     }
 
     /**
@@ -248,7 +264,7 @@ class User extends Authenticatable
         }
 
         // Only Secretary can manage reports
-        return $this->user_role === 'Secretary';
+        return $this->user_role === 'operations_admin';
     }
 
     /**
@@ -280,7 +296,7 @@ class User extends Authenticatable
         }
 
         // Only Secretary can generate reports
-        return $this->user_role === 'Secretary';
+        return $this->user_role === 'operations_admin';
     }
 
     /**

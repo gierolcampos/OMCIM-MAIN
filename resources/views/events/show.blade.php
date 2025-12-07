@@ -406,13 +406,13 @@
 
                 <!-- All Events Link -->
                 <div class="mb-6 text-center">
+                    @if(Auth::user()->canManageEvents())
                     <a href="{{ route('events.custom-calendar') }}" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                         </svg>
                         All Events
                     </a>
-                    @if(Auth::user()->canManageEvents() || $event->created_by === Auth::id())
                     <div class="mt-3 space-x-3">
                         <a href="{{ route('events.edit', $event) }}" class="inline-flex items-center text-sm text-[#c21313] hover:text-red-700">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

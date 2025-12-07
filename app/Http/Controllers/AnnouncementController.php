@@ -54,6 +54,12 @@ class AnnouncementController extends Controller
                 ->with('error', 'You do not have permission to access the admin area.');
         }
 
+        if (!Auth::user()->canManageEvents()) {
+            return redirect()->route('announcements.index')
+                ->with('error', 'You do not have permission to access the admin area.');
+        }
+
+
         // Start with base query - for admin, show ALL announcements including drafts
         $query = Announcement::with('creator');
 

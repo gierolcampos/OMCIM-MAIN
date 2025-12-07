@@ -22,7 +22,7 @@ class ReportController extends Controller
     public function index()
     {
         // Check if user is admin
-        if (!Auth::user()->isAdmin()) {
+        if (!Auth::user()->canManageReports()) {
             return redirect()->route('home.index')
                 ->with('error', 'You do not have permission to access this page.');
         }
