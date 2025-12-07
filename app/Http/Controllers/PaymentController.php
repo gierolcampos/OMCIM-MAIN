@@ -481,7 +481,7 @@ class PaymentController extends Controller
                     });
 
         // Fetch all admin users for officer selection (excluding PIO who cannot manage payments)
-        $officers = User::whereIn('user_role', ['superadmin', 'Secretary', 'Treasurer', 'Auditor', 'BM'])
+        $officers = User::whereIn('user_role', ['super_admin', 'finance_admin', 'operation_admin', 'moderator'])
                     ->select('id', 'firstname', 'lastname', 'middlename', 'suffix', 'email')
                     ->orderBy('lastname')
                     ->orderBy('firstname')

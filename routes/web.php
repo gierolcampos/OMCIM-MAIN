@@ -136,6 +136,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('admin.events.calendar');
     Route::get('/events/custom-calendar', [EventController::class, 'customCalendar'])->name('admin.events.custom-calendar');
     Route::get('/events/export/ical', [EventController::class, 'exportIcal'])->name('admin.events.export.ical');
+
+
     // Event routes - only accessible to Secretary and PIO
     Route::middleware(['permission:manage-events'])->group(function () {
         Route::get('/events', [EventController::class, 'adminIndex'])->name('admin.events.index');
@@ -225,7 +227,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // View-only for super_admin and finance_admin only
         Route::middleware(['role:super_admin,finance_admin'])->group(function () {
             Route::get('/', [PaymentController::class, 'index'])->name('admin.payments.index');
+            Route::get('/create', [PaymentController::class, 'create'])->name('admin.payments.create');
             Route::get('/{id}', [PaymentController::class, 'show'])->name('admin.payments.show');
+            
 
             // Payment Fees API (read)
             Route::get('/fees', [PaymentController::class, 'getAllPaymentFees'])->name('admin.payments.fees.all');
@@ -240,7 +244,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Manage-only for super_admin and finance_admin (treated equally in payment section)
         Route::middleware(['role:super_admin,finance_admin'])->group(function () {
-            Route::get('/create', [PaymentController::class, 'create'])->name('admin.payments.create');
+            
             Route::post('/', [PaymentController::class, 'store'])->name('admin.payments.store');
             Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('admin.payments.edit');
             Route::put('/{id}', [PaymentController::class, 'update'])->name('admin.payments.update');
