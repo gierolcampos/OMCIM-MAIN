@@ -152,16 +152,38 @@
                     $userRole = strtolower(Auth::user()->user_role ?? '');
                     $isModerator = $userRole === 'moderator';
                 @endphp
-                
-                    @if(Auth::user()->canManagePayments())
+              
+
+
+
+                    <!-- Finance Dropdown Menu -->
+
+                        @if(Auth::user() ->canManagePayments())
+
+                     <div class="about-dropdown">
                         <x-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
+                            {{ __('Finance') }}
+                        </x-nav-link>
+                        <div class="about-dropdown-content">
+                            <a href="{{ route('admin.payments.create') }}" class="about-dropdown-item">Cash in</a>
+                            <a href="{{ route('about_us.vision_mission') }}" class="about-dropdown-item">Cash out</a>
+                            <a href="{{ route('admin.payment-fees.index') }}" class="about-dropdown-item">Manage Fees</a>
+                            
+                        
+                        </div>
+                     </div>
+
+                     @else
+
+                     <x-nav-link :href="route('client.payments.index')" :active="request()->routeIs('client.payments.*')">
                             {{ __('Payments') }}
                         </x-nav-link>
-                    @else
-                        <x-nav-link :href="route('client.payments.index')" :active="request()->routeIs('client.payments.*')">
-                            {{ __('Payments') }}
-                        </x-nav-link>
-                    @endif
+
+                        @endif
+                    
+
+
+
                 
 
                 @if(Auth::user()->canManageReports())
